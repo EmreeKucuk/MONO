@@ -1,0 +1,180 @@
+/* Writing suggestions, compact controls, and transition polish. */
+.name-dialog{
+  width:min(420px,calc(100vw - 32px))
+}
+.name-dialog h2{
+  font-size:22px;
+  margin:0 0 20px
+}
+.name-dialog label{
+  font-size:14px;
+  display:block
+}
+.name-dialog input{
+  display:block;
+  width:100%;
+  margin-top:8px
+}
+.name-dialog .actions{
+  margin-top:22px
+}
+.slash-menu{
+  position:fixed;
+  z-index:110;
+  min-width:225px;
+  max-width:min(300px,calc(100vw - 20px));
+  max-height:265px;
+  overflow-y:auto;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:9px;
+  box-shadow:0 18px 48px #0009;
+  padding:5px
+}
+.slash-menu[hidden]{
+  display:none
+}
+.slash-menu button{
+  width:100%;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  text-align:left;
+  background:transparent;
+  border:0;
+  padding:8px 10px
+}
+.slash-menu button.active,.slash-menu button:hover{
+  background:color-mix(in srgb,var(--accent) 15%,transparent)
+}
+.slash-menu code{
+  color:var(--accent);
+  font-size:13px
+}
+.slash-menu span{
+  font-size:13px;
+  color:var(--muted)
+}
+.note-block{
+  position:relative
+}
+.note-document{
+  cursor:text
+}
+.focus-duration{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  margin:0 0 19px
+}
+.focus-duration label{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:var(--muted);
+  font-size:13px
+}
+.focus-duration input{
+  width:65px;
+  padding:5px 7px;
+  text-align:center;
+  font-variant-numeric:tabular-nums
+}
+.focus-duration button{
+  font-size:12px;
+  padding:6px 8px
+}
+.goal-form{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px
+}
+.goal-form label{
+  color:var(--muted);
+  font-size:12px
+}
+.goal-form input{
+  display:block;
+  width:100%;
+  min-width:0;
+  margin-top:5px;
+  padding:7px
+}
+.goal-form button{
+  grid-column:1/-1;
+  justify-self:start;
+  font-size:12px
+}
+.goal-stat{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  margin:18px 0 12px
+}
+.goal-stat strong{
+  font-size:35px;
+  font-weight:550;
+  line-height:1
+}
+.goal-stat strong span{
+  font-size:17px;
+  color:var(--muted)
+}
+.goal-stat>span{
+  font-size:14px;
+  color:var(--accent)
+}
+.goal-actions{
+  display:flex;
+  gap:8px
+}
+.goal-actions button{
+  flex:1
+}
+.date-item{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  padding:10px 0;
+  border-bottom:1px solid var(--line)
+}
+.date-item>span{
+  flex:1;
+  min-width:0
+}
+.date-item strong{
+  display:block;
+  font-size:14px;
+  font-weight:550;
+  overflow-wrap:anywhere
+}
+.date-item small{
+  display:block;
+  color:var(--muted);
+  margin-top:4px;
+  font-size:12px
+}
+.date-item b{
+  color:var(--accent);
+  font-size:12px;
+  white-space:nowrap;
+  font-weight:500
+}
+.date-item .icon{
+  font-size:17px
+}
+.dates-form{
+  margin-top:14px
+}
+.dates-form>input{
+  width:100%
+}
+.dates-form .compact-form{
+  margin-top:7px
+}
+@media(prefers-reduced-motion:reduce){
+  .grid-surface>.widget{
+    transition:none!important
+  }
+}

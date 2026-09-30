@@ -1,0 +1,340 @@
+/* Task folders and theme controls */
+select{
+  font:inherit;
+  color:inherit;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:7px;
+  font-size:14px;
+  max-width:100%
+}
+select:focus-visible,summary:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px
+}
+.view-options{
+  display:flex;
+  align-items:center;
+  gap:20px
+}
+.theme-picker{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  color:var(--muted);
+  font-size:14px
+}
+.theme-picker select{
+  color:inherit;
+  padding:6px 8px
+}
+.group-heading{
+  display:flex;
+  align-items:center;
+  gap:3px
+}
+.group-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  min-width:0;
+  padding:10px 0;
+  background:none;
+  border:0;
+  text-align:left;
+  font-size:14px
+}
+.group-toggle:hover{
+  background:transparent;
+  color:var(--accent)
+}
+.group-toggle svg{
+  width:17px;
+  height:17px;
+  flex-shrink:0;
+  color:var(--accent)
+}
+.group-toggle>span:not(.chevron){
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap
+}
+.group-toggle small{
+  margin-left:auto;
+  color:var(--muted);
+  font-size:12px
+}
+.chevron{
+  color:var(--muted);
+  width:10px
+}
+.group-action{
+  font-size:15px;
+  padding:5px
+}
+.task-group{
+  border-top:1px solid var(--line);
+  margin-top:7px
+}
+.task-group:first-child{
+  border-top:0
+}
+.group-empty{
+  font-size:13px;
+  color:var(--muted);
+  margin:5px 0 10px 26px
+}
+.task-group .task-row{
+  padding:10px 0;
+  gap:8px
+}
+.task-text{
+  overflow-wrap:anywhere;
+  min-width:0
+}
+.task-menu{
+  position:relative;
+  flex-shrink:0
+}
+.task-menu summary{
+  cursor:pointer;
+  list-style:none;
+  padding:4px 7px;
+  color:var(--muted);
+  border-radius:5px;
+  font-size:18px
+}
+.task-menu summary::-webkit-details-marker{
+  display:none
+}
+.task-menu[open] summary{
+  color:var(--accent)
+}
+.task-menu-panel{
+  position:absolute;
+  right:0;
+  top:27px;
+  z-index:20;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:13px;
+  width:180px;
+  box-shadow:0 8px 24px #0007
+}
+.task-menu-panel label{
+  display:block;
+  font-size:12px;
+  color:var(--muted)
+}
+.task-menu-panel select{
+  display:block;
+  width:100%;
+  margin-top:7px;
+  color:var(--accent)
+}
+.task-menu-panel button{
+  width:100%;
+  margin-top:12px;
+  background:none;
+  text-align:left;
+  font-size:13px
+}
+.new-group{
+  margin-top:15px
+}
+.new-group>summary{
+  list-style:none;
+  font-size:14px;
+  color:var(--accent);
+  cursor:pointer;
+  display:inline-block;
+  padding:5px 0
+}
+.add-group{
+  display:flex;
+  gap:6px;
+  margin:9px 0
+}
+.add-group input{
+  width:100%;
+  min-width:0
+}
+.grouped-add{
+  display:block;
+  padding-top:14px;
+  border-top:1px solid var(--line)
+}
+.task-destination{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:8px
+}
+.task-destination select{
+  max-width:180px;
+  padding:4px 7px;
+  font-size:13px
+}
+.task-input-row{
+  display:flex;
+  gap:6px
+}
+.widget:has(.grouped-add) .widget-body{
+  max-height:390px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--line) transparent
+}
+:root[data-theme=navy]{
+  background:#0b1220;
+  color:#e5ebf5;
+  --panel:#141f33;
+  --line:#2a3953;
+  --muted:#9baac1;
+  --accent:#98b9ff
+}
+[data-theme=navy] .sidebar{
+  background:#0e1829
+}
+[data-theme=navy] button{
+  background:#1c2a41;
+  border-color:#344766
+}
+[data-theme=navy] button:hover{
+  background:#293e5c
+}
+[data-theme=navy] button.primary{
+  background:var(--accent);
+  border-color:var(--accent);
+  color:#101d37
+}
+[data-theme=navy] button.primary:hover{
+  background:#b5ccff
+}
+[data-theme=navy] .icon,[data-theme=navy] .nav button,[data-theme=navy] .group-toggle,[data-theme=navy] .day,[data-theme=navy] .text-button,[data-theme=navy] .demo-banner button{
+  background:transparent
+}
+[data-theme=navy] .icon:hover,[data-theme=navy] .day:hover{
+  background:#263956
+}
+[data-theme=navy] .nav button.active{
+  background:#203453;
+  color:var(--accent)
+}
+[data-theme=navy] .workspace-name,[data-theme=navy] .note{
+  color:#cbd7eb
+}
+[data-theme=navy] .breadcrumbs strong{
+  color:#e0e9fa
+}
+[data-theme=navy] .avatar{
+  background:#293e5b;
+  color:#c5d8ff
+}
+[data-theme=navy] .desk{
+  background-image:radial-gradient(#2a3c56 1px,transparent 1px)
+}
+[data-theme=navy] .widget{
+  border-color:#2d3c56
+}
+[data-theme=navy] .widget.dragging{
+  border-color:var(--accent)
+}
+[data-theme=navy] .widget-head svg{
+  color:#a8bfdf
+}
+[data-theme=navy] .widget-tag{
+  color:#b7cef4;
+  background:#233653
+}
+[data-theme=navy] .progress{
+  background:#2c3b51
+}
+[data-theme=navy] .task-row{
+  border-color:var(--line)
+}
+[data-theme=navy] .task-row.done .task-text{
+  color:#94a2b8
+}
+[data-theme=navy] .add-task input{
+  background:#0e192b
+}
+[data-theme=navy] .day.today{
+  box-shadow:inset 0 0 0 1px var(--accent)
+}
+[data-theme=navy] .day.selected{
+  background:var(--accent);
+  color:#10203c
+}
+[data-theme=navy] .toolbox{
+  background:#142039;
+  border-color:#374d70
+}
+[data-theme=navy] .tool{
+  background:#1c2b43
+}
+[data-theme=navy] .focus-foot i{
+  background:#304563
+}
+[data-theme=navy] .focus-foot i:first-child{
+  background:var(--accent)
+}
+[data-theme=navy] dialog{
+  background:#142039;
+  color:#e5ebf5;
+  border-color:#374d70
+}
+[data-theme=navy] dialog input{
+  background:#0b1526
+}
+[data-theme=navy] dialog::backdrop{
+  background:#050b19c9
+}
+[data-theme=navy] #auth-message{
+  color:#b8d0ff
+}
+[data-theme=navy] #toast{
+  background:#c1d6ff;
+  color:#12233e
+}
+[data-theme=navy] .demo-banner{
+  background:#17263d;
+  color:#adbdd5
+}
+[data-theme=navy] .canvas-footer,[data-theme=navy] .note-meta,[data-theme=navy] .weekday,[data-theme=navy] .grip,[data-theme=navy] .heading .date{
+  color:#9baac1
+}
+[data-theme=navy] input:focus,[data-theme=navy] textarea:focus{
+  border-color:var(--accent)
+}
+[data-theme=navy] .danger{
+  background:#653542
+}
+[data-theme=navy] .brand img{
+  filter:hue-rotate(105deg) saturate(.8)
+}
+@media(max-width:1100px){
+  .view-options{
+    gap:8px
+  }
+}
+@media(max-width:760px){
+  .viewbar{
+    flex-wrap:wrap;
+    gap:12px
+  }
+.theme-picker{
+    font-size:12px
+  }
+.theme-picker select{
+    font-size:13px
+  }
+.view-label{
+    gap:8px
+  }
+}

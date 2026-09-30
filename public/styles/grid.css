@@ -1,0 +1,228 @@
+/* Snapped grid overrides the old free-position canvas at every viewport width. */
+#desk.desk{
+  display:block;
+  min-height:0!important;
+  overflow-x:auto;
+  overflow-y:clip;
+  max-width:100%;
+  background:none;
+  padding:3px 3px 18px;
+  scrollbar-width:thin
+}
+.grid-surface{
+  display:grid;
+  position:relative;
+  grid-template-columns:repeat(var(--columns),minmax(0,1fr));
+  gap:16px;
+  --cell-size:360px;
+  min-width:calc(var(--columns)*260px + (var(--columns) - 1)*16px)
+}
+#desk .grid-surface>.widget{
+  position:relative!important;
+  left:auto!important;
+  top:auto!important;
+  width:auto!important;
+  min-width:0;
+  height:100%;
+  margin:0;
+  display:flex;
+  flex-direction:column;
+  z-index:2
+}
+#desk .grid-surface>.widget>.widget-body{
+  flex:1;
+  min-height:0;
+  max-height:none;
+  overflow:auto;
+  padding-bottom:27px;
+  scrollbar-width:thin
+}
+.grid-surface .widget-head{
+  cursor:grab;
+  flex-shrink:0;
+  padding:13px 12px;
+  gap:7px
+}
+.grid-surface .widget-title{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0
+}
+.grid-surface .grip{
+  display:inline!important
+}
+.widget-size{
+  font-size:11px;
+  color:var(--muted);
+  white-space:nowrap
+}
+.grid-cell{
+  border:1px dashed var(--line);
+  border-radius:11px;
+  background:color-mix(in srgb,var(--panel) 20%,transparent);
+  pointer-events:none;
+  min-width:0
+}
+.grid-cell>span{
+  display:inline-block;
+  padding:12px;
+  color:var(--muted);
+  font-size:11px;
+  opacity:.5
+}
+.grid-editing .grid-cell{
+  border-color:var(--accent)
+}
+.grid-surface .grid-dragging{
+  opacity:.65;
+  z-index:5!important
+}
+.grid-preview{
+  pointer-events:none;
+  z-index:8;
+  background:color-mix(in srgb,var(--accent) 12%,transparent);
+  border:2px solid var(--accent);
+  border-radius:11px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:12px;
+  color:var(--accent);
+  font-size:13px;
+  font-weight:600
+}
+.resize-handle{
+  position:absolute;
+  bottom:2px;
+  right:2px;
+  padding:4px 7px;
+  border:0;
+  background:transparent!important;
+  color:var(--accent);
+  font-size:19px;
+  cursor:nwse-resize;
+  touch-action:none;
+  z-index:10;
+  line-height:1.2
+}
+.grid-count{
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap
+}
+.viewbar{
+  flex-wrap:wrap;
+  gap:12px
+}
+.view-options{
+  gap:12px;
+  flex-wrap:wrap
+}
+.view-options .hint{
+  display:none
+}
+.grid-surface .note-document{
+  max-height:none
+}
+.grid-surface .notebook{
+  height:100%;
+  display:flex;
+  flex-direction:column
+}
+.grid-surface .note-document{
+  flex:1;
+  min-height:120px
+}
+.grid-surface .notebook-pages,.grid-surface .note-bottom,.grid-surface .command-guide{
+  flex-shrink:0
+}
+.widget-search{
+  width:min(560px,94vw);
+  padding:23px
+}
+.widget-search header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:18px
+}
+.widget-search h2{
+  margin:0;
+  font-size:22px
+}
+.widget-search input{
+  width:100%;
+  margin-bottom:14px;
+  font-size:16px
+}
+.widget-search footer{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:16px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px
+}
+#widget-results{
+  max-height:50vh;
+  overflow:auto;
+  scrollbar-width:thin
+}
+.widget-result{
+  display:flex;
+  gap:13px;
+  align-items:center;
+  padding:13px;
+  border:1px solid transparent;
+  border-radius:8px;
+  cursor:pointer
+}
+.widget-result[aria-selected=true]{
+  border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 10%,transparent)
+}
+.widget-result svg{
+  width:23px;
+  height:23px;
+  flex-shrink:0;
+  color:var(--accent)
+}
+.widget-result strong{
+  display:block;
+  font-size:14px;
+  font-weight:500
+}
+.widget-result small{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:5px
+}
+@media(max-width:900px){
+  #widget-search-open span{
+    display:none
+  }
+.topbar{
+    padding:0 15px
+  }
+.toolbar{
+    gap:8px
+  }
+.view-options .grid-count{
+    display:none
+  }
+}
+@media(max-width:760px){
+  .grid-surface{
+    min-width:calc(var(--columns)*260px + (var(--columns) - 1)*16px)
+  }
+.breadcrumbs{
+    max-width:100px;
+    overflow:hidden;
+    white-space:nowrap
+  }
+.widget-search footer{
+    flex-wrap:wrap
+  }
+}
