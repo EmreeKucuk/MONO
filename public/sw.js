@@ -1,6 +1,6 @@
-const CACHE='mono-shell-v14';
+const CACHE='mono-shell-v15';
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/cloud.js','/draft-store.js','/state-schema.js','/task-groups.js','/notebook.js','/extra-widgets.js','/grid-layout.js','/widget-search.js','/name-dialog.js','/ui-utils.js','/focus-state.js','/workspace-model.js','/shell-view.js','/calendar-view.js','/editor-input.js','/grid-view.js','/styles/base.css','/styles/tasks-themes.css','/styles/notebooks-widgets.css','/styles/grid.css','/styles/interactions.css','/styles/overrides.css','/favicon.svg','/manifest.webmanifest'])));
+  event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/cloud.js','/draft-store.js','/state-schema.js','/task-groups.js','/notebook.js','/extra-widgets.js','/grid-layout.js','/widget-search.js','/widget-shortcuts.js','/name-dialog.js','/ui-utils.js','/focus-state.js','/workspace-model.js','/shell-view.js','/calendar-view.js','/editor-input.js','/grid-view.js','/styles/base.css','/styles/tasks-themes.css','/styles/notebooks-widgets.css','/styles/grid.css','/styles/interactions.css','/styles/overrides.css','/favicon.svg','/manifest.webmanifest'])));
   self.skipWaiting();
 });
 self.addEventListener('activate',event=>{

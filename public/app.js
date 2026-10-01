@@ -1,4 +1,5 @@
 import { patchGrid } from './grid-view.js';
+import { installWidgetShortcuts,refreshWidgetShortcuts } from './widget-shortcuts.js';
 import { renderCalendar } from './calendar-view.js';
 import { renderShell } from './shell-view.js';
 import { askName } from './name-dialog.js';
@@ -153,6 +154,7 @@ function renderWidget(id){
     changed,render:renderDesk,announce:notify
   });
   restoreFocus(next,focused);
+  refreshWidgetShortcuts();
   const count=state.widgets.filter(item=>item.type==='tasks').flatMap(item=>item.tasks).filter(task=>!task.done).length;
   const badge=document.querySelector('[data-view="tasks"] span');
   if(badge)badge.textContent=count;
@@ -178,6 +180,7 @@ function renderDesk(){
   const badge=document.querySelector('[data-view="tasks"] span');
   if(badge)badge.textContent=count;
   if(view==='tasks')document.querySelector('.view-label span').textContent=count+' açık görev';
+  refreshWidgetShortcuts();
 }
 function timeString(sec){
   return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
@@ -501,6 +504,7 @@ window.addEventListener('beforeinstallprompt',e=>{
   if(b)b.hidden=false;
 });
 const openWidgetSearch=installWidgetSearch(types,addWidget,icon);
+installWidgetShortcuts(id=>state.widgets.find(widget=>widget.id===id)?.type);
 shell();
 try{
   const session=await current();

@@ -70,6 +70,31 @@ test('two tabs show a conflict instead of overwriting',async()=>{
 
 test('grid can be moved by keyboard',async()=>{const page=await browser.newPage({serviceWorkers:'block'});await page.goto(base);const widget=page.locator('.grid-surface>.widget').first(),id=await widget.getAttribute('data-id');await widget.locator('.widget-head').focus();await page.keyboard.press('ArrowRight');assert.equal(await page.locator(`[data-id="${id}"]`).evaluate(element=>getComputedStyle(element).gridColumnStart),'2');await page.close();});
 
+test('Alt digits focus widget actions, preserve note caret and respect modal boundaries and grid order',async()=>{
+  const page=await browser.newPage({serviceWorkers:'block'}),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto(base);
+  await page.keyboard.press('Alt+3');assert.ok(await page.evaluate(()=>document.activeElement.matches('.note-document')));
+  await page.keyboard.press('Control+a');await page.keyboard.type('abcdef');await page.keyboard.press('ArrowLeft');await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Alt+1');assert.ok(await page.evaluate(()=>document.activeElement.matches('.add-task input[name="task"]')));
+  await page.keyboard.press('Alt+3');await page.keyboard.type('X');assert.equal(await page.locator('.note-document .block-input').first().textContent(),'abcdXef');
+  await page.keyboard.press('End');await page.keyboard.press('Enter');await page.keyboard.type('ikinci');
+  await page.keyboard.press('Control+a');await page.keyboard.press('Alt+1');await page.keyboard.press('Alt+3');
+  assert.match(await page.evaluate(()=>getSelection().toString()),/abcdXef[\s\S]*ikinci/);
+  for(const selector of ['.event-form input','[data-start]','.habit-form input','.link-form input[name="name"]']){
+    const shortcut=await page.locator(selector).evaluate(element=>element.closest('.widget').getAttribute('aria-keyshortcuts'));
+    await page.keyboard.press(shortcut);assert.ok(await page.evaluate(selector=>document.activeElement.matches(selector),selector));
+  }
+  for(const type of ['journal','goal','dates','note']){await page.locator('#tool-toggle').click();await page.locator(`[data-add="${type}"]`).click();}
+  await page.keyboard.press('Alt+7');assert.ok(await page.evaluate(()=>document.activeElement.matches('.journal-input')));
+  await page.keyboard.press('Alt+8');assert.ok(await page.evaluate(()=>document.activeElement.matches('[data-goal-step="1"]')));
+  await page.keyboard.press('Alt+9');assert.ok(await page.evaluate(()=>document.activeElement.matches('.dates-form input[name="name"]')));
+  await page.keyboard.press('Alt+0');assert.ok(await page.evaluate(()=>document.activeElement.closest('.widget')?.getAttribute('aria-keyshortcuts')==='Alt+0'&&document.activeElement.matches('.note-document')));
+  await page.locator('#widget-search-open').click();await page.locator('#widget-query').fill('not');await page.keyboard.press('Alt+1');assert.equal(await page.locator('#widget-query').inputValue(),'not');assert.ok(await page.evaluate(()=>document.activeElement.id==='widget-query'));await page.keyboard.press('Escape');
+  const first=page.locator('.widget').first();await first.locator('.widget-head').focus();await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Alt+1');assert.equal(await page.evaluate(()=>document.activeElement.closest('.widget').dataset.id),await page.locator('.widget').first().getAttribute('data-id'));
+  await page.keyboard.press('Control+Alt+2');assert.equal(await page.evaluate(()=>document.activeElement.closest('.widget').dataset.id),await page.locator('.widget').first().getAttribute('data-id'));
+  assert.deepEqual(errors,[]);await page.close();
+});
+
 test('clipboard keeps block formatting, cut undo restores selection and word deletion uses the model',async()=>{
   const page=await browser.newPage({serviceWorkers:'block'});await page.goto(base);
   const area=page.locator('.notebook .note-document').first();
