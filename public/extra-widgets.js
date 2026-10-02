@@ -1,4 +1,5 @@
 import { safeHttpUrl } from './state-schema.js';
+import { renderSpotify,bindSpotify } from './spotify-widget.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }
@@ -12,9 +13,11 @@ const dates=()=>Array.from({
   return d;
 });
 export const extraTypes={
+  spotify:['Spotify','Şarkı, albüm ve çalma listesi oynatıcısı'],
   habits:['Alışkanlıklar','Küçük adımlar, düzenli ilerleme'],links:['Hızlı bağlantılar','Sık açtığın yerlere tek tık'],journal:['Günlük kayıt','Her güne ayrı bir sayfa'],goal:['Hedef sayacı','Sayılabilir bir hedefin ilerlemesi'],dates:['Önemli tarihler','Yaklaşan günlere geri sayım']
 };
 export function renderExtra(w){
+  if(w.type==='spotify')return renderSpotify(w);
   if(w.type==='habits'){
     w.habits??=[];
     const days=dates();
@@ -50,6 +53,7 @@ export function bindExtra(w,root,{
     changed();
     render();
   };
+  if(w.type==='spotify')return bindSpotify(w,root,{changed,render});
   root.querySelector('.habit-form')?.addEventListener('submit',e=>{
     e.preventDefault();
     const name=e.target.elements.name.value.trim();

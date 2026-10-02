@@ -217,3 +217,38 @@ test('sidebar preferences, persistent clock, full widget border and mobile contr
   await mobile.locator('#sidebar-toggle').click();assert.equal(await mobile.locator('#workspace-sidebar').isVisible(),false);
   await mobile.close();
 });
+
+test('Spotify widget validates, saves, keeps its player during grid updates and reflows on mobile',async()=>{
+  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}});
+  let remote=null,revision=0,loads=0;
+  await context.route('https://open.spotify.com/embed/**',route=>{loads++;return route.fulfill({contentType:'text/html',body:'<!doctype html><button>Spotify test player</button>'});});
+  await context.route('**/api/**',route=>{
+    const request=route.request(),path=new URL(request.url()).pathname;
+    if(path==='/api/session')return route.fulfill({json:{configured:true,user:{id:'music-user',email:'music@example.com'}}});
+    if(request.method()==='GET')return route.fulfill({json:{state:remote,revision}});
+    const input=request.postDataJSON();remote=input.state;revision++;return route.fulfill({json:{revision}});
+  });
+  const page=await context.newPage();await page.goto(base);await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('music@example.com'));
+  await page.locator('#widget-search-open').click();await page.locator('#widget-query').fill('spotify');await page.keyboard.press('Enter');
+  const card=page.locator('.widget').filter({has:page.locator('.spotify-form')}),input=card.locator('[name="spotifyUrl"]');
+  await input.fill('https://evil.test/playlist/37i9dQZF1DXcBWIGoYBM5M');await card.locator('[type="submit"]').click();
+  assert.equal(await input.getAttribute('aria-invalid'),'true');assert.equal(await card.locator('iframe').count(),0);
+  await input.fill('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=example');await card.locator('[type="submit"]').click();
+  await card.locator('iframe').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));
+  assert.equal(remote.widgets.find(widget=>widget.type==='spotify').spotifyUrl,'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M');
+  const shortcut=await card.getAttribute('aria-keyshortcuts');await page.keyboard.press(shortcut);assert.ok(await page.evaluate(()=>document.activeElement.matches('.spotify-form input')));
+  await card.locator('iframe').scrollIntoViewIfNeeded();await page.frameLocator('.spotify-player').getByRole('button').waitFor();
+  const before=loads;await page.evaluate(()=>window.savedPlayer=document.querySelector('.spotify-player'));
+  await page.locator('.widget-head').first().focus();await page.keyboard.press('ArrowRight');
+  assert.ok(await page.evaluate(()=>window.savedPlayer===document.querySelector('.spotify-player')));
+  await page.waitForTimeout(150);assert.equal(loads,before);
+  await page.reload();await card.locator('iframe').waitFor({state:'visible'});assert.match(await input.inputValue(),/open.spotify.com\/playlist\//);
+  await page.setViewportSize({width:320,height:700});
+  if(await page.locator('#workspace-sidebar').isVisible())await page.locator('#sidebar-toggle').click();
+  await card.scrollIntoViewIfNeeded();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.equal(await card.locator('a').getAttribute('rel'),'noopener noreferrer');
+  await card.locator('[data-spotify-remove]').click();assert.equal(await card.locator('iframe').count(),0);
+  await context.close();
+});
+

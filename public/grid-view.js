@@ -39,7 +39,15 @@ export function patchGrid(desk, widgets, columns, rows, { card, style, bind }) {
     }
     node.style.cssText = style(widget.grid, columns);
     node.querySelector('.resize-handle').setAttribute('aria-label', `${widget.title} boyutu ${widget.grid.cols} sütun, ${widget.grid.rows} satır; ok tuşlarıyla değiştir`);
-    surface.append(node);
+  }
+  // Avoid detaching live iframe players on every grid reconciliation.
+  for(let index=0;index<widgets.length;index++) {
+    const existing=[...surface.querySelectorAll(':scope > .widget')];
+    const node=existing.find(card=>card.dataset.id===widgets[index].id);
+    if(node===existing[index])continue;
+    const before=existing[index]||null;
+    if(typeof surface.moveBefore==='function')surface.moveBefore(node,before);
+    else surface.insertBefore(node,before);
   }
   if (focused?.isConnected && surface.contains(focused)) focused.focus({ preventScroll: true });
   if (savedSelection?.anchor.isConnected && savedSelection.focus.isConnected) {

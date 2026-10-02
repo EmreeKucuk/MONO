@@ -1,4 +1,5 @@
 const selectors = {
+  spotify: '.spotify-form input[name="spotifyUrl"]',
   tasks: '.add-task input[name="task"]',
   note: '.note-document',
   calendar: '.event-form input[name="event"]',

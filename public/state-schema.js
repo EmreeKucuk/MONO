@@ -1,6 +1,7 @@
 // A persisted workspace is untrusted input, even when it belongs to this account.
 export const STATE_VERSION=1;
-const types=new Set(['tasks','note','calendar','focus','habits','links','journal','goal','dates']);
+import { spotifyContent } from './spotify-url.js';
+const types=new Set(['tasks','note','calendar','focus','habits','links','journal','goal','dates','spotify']);
 const blockTypes=new Set(['text','title','subtitle','bullet','check','number','quote']);
 const str=(value,max=10000)=>String(typeof value==='string'?value:'').slice(0,max);
 const list=(value,max=500)=>Array.isArray(value)?value.slice(0,max):[];
@@ -36,6 +37,7 @@ function widget(value){
     slot:integer(value.grid.slot,0,0,10000),cols:integer(value.grid.cols,1,1,3),rows:integer(value.grid.rows,1,1,100)
   };
   w.text=str(value.text,200000);
+  if(w.type==='spotify')w.spotifyUrl=spotifyContent(value.spotifyUrl)?.url||'';
   w.tasks=list(value.tasks,1000).map(task);
   w.groups=list(value.groups,100).map(g=>({
     id:id(g?.id),name:str(g?.name,60),collapsed:g?.collapsed===true
