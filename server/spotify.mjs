@@ -61,6 +61,12 @@ export async function handleSpotify(req,res,{authenticated,body,json}){
   }
   const value=await session(req,res,config,auth.user);
   if(action==='token'&&req.method==='GET'){json(res,200,{access_token:value.access});return;}
+  if(action==='state'&&req.method==='GET'){
+    const data=await api(value,'/me/player'),track=data?.item;
+    let cover=null;
+    try{const image=new URL(track?.album?.images?.[0]?.url);if(image.protocol==='https:'&&image.hostname==='i.scdn.co'&&!image.username&&!image.password)cover=image.href;}catch{}
+    json(res,200,{playing:data?.is_playing===true,position:Math.max(0,Number(data?.progress_ms)||0),duration:Math.max(0,Number(track?.duration_ms)||0),track:track?{name:String(track.name||'').slice(0,300),album:String(track.album?.name||'').slice(0,300),artist:(track.artists||[]).map(artist=>String(artist.name||'')).join(', ').slice(0,300),cover}:null});return;
+  }
   if(action==='playlists'&&req.method==='GET'){
     const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Geçersiz sayfa.');
     const data=await api(value,`/me/playlists?limit=50&offset=${offset}`);
@@ -72,6 +78,10 @@ export async function handleSpotify(req,res,{authenticated,body,json}){
     if(typeof device!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(device))throw fail(400,'Bir Spotify cihazı seç.');
     const suffix='?device_id='+encodeURIComponent(device);
     if(input.action==='play'){if(!/^[a-zA-Z0-9]{22}$/.test(input.playlistId||''))throw fail(400,'Bir çalma listesi seç.');await api(value,'/me/player/play'+suffix,'PUT',{context_uri:'spotify:playlist:'+input.playlistId});}
+    else if(input.action==='seek'){
+      if(!Number.isSafeInteger(input.positionMs)||input.positionMs<0||input.positionMs>86400000)throw fail(400,'Geçersiz oynatma konumu.');
+      await api(value,'/me/player/seek'+suffix+'&position_ms='+input.positionMs,'PUT');
+    }
     else if(['pause','resume'].includes(input.action))await api(value,'/me/player/'+(input.action==='pause'?'pause':'play')+suffix,'PUT',{});
     else if(['next','previous'].includes(input.action))await api(value,'/me/player/'+input.action+suffix,'POST');
     else throw fail(400,'Geçersiz oynatma komutu.');

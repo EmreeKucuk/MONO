@@ -19,3 +19,44 @@
 .spotify-buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
 .spotify-buttons button { font-size:12px; }
 .spotify-account [hidden] { display:none; }
+
+/* Compact player, inspired by a physical music remote. */
+.spotify-media { background:#101210; border:1px solid var(--line); border-radius:22px; padding:22px 20px 16px; }
+[data-theme=navy] .spotify-media { background:#0c1422; }
+.spotify-track { display:flex; gap:16px; align-items:center; min-width:0; }
+.spotify-artwork { position:relative; width:70px; height:70px; flex-shrink:0; background:var(--panel); border:1px solid var(--line); border-radius:10px; overflow:hidden; display:grid; place-items:center; color:var(--accent); font-size:30px; }
+.spotify-artwork img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.spotify-track-text { min-width:0; display:grid; gap:5px; }
+.spotify-kicker { color:var(--accent); font-size:9px; letter-spacing:2px; }
+[data-spotify-title] { font-size:18px; font-weight:600; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+[data-spotify-artist],[data-spotify-album] { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+[data-spotify-album] { font-size:11px; }
+.spotify-timeline { margin:20px 0 8px; }
+.spotify-timeline input[type=range] { --progress:0%; appearance:none; width:100%; height:6px; padding:0; border:0; border-radius:10px; background:linear-gradient(to right,var(--accent) var(--progress),var(--line) var(--progress)); cursor:pointer; display:block; }
+.spotify-timeline input::-webkit-slider-thumb { appearance:none; width:12px; height:12px; border-radius:50%; background:var(--accent); border:0; }
+.spotify-timeline input::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:var(--accent); border:0; }
+.spotify-timeline input:focus-visible { outline:2px solid var(--accent); outline-offset:5px; }
+.spotify-timeline input:disabled { cursor:default; }
+.spotify-times { display:flex; justify-content:space-between; color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; margin-top:10px; }
+.spotify-transport { display:flex; justify-content:center; align-items:center; gap:26px; }
+.spotify-transport button { display:grid; place-items:center; width:42px; height:42px; padding:8px; border:0; background:transparent; color:#e6e9e5; }
+.spotify-transport svg { width:24px; height:24px; }
+.spotify-transport .spotify-play { width:52px; height:52px; background:var(--accent); color:#111812; border-radius:50%; }
+.spotify-transport button:disabled { cursor:default; opacity:.45; }
+.spotify-settings { margin-top:14px; }
+.spotify-settings summary { color:var(--muted); font-size:12px; cursor:pointer; padding:8px 0; }
+.spotify-account { border:0; padding:0; }
+.spotify-account [data-spotify-message] { font-size:11px; margin:10px 0 0; }
+.spotify-legacy { border-top:1px solid var(--line); padding-top:8px; }
+@media(max-width:400px) {
+  .spotify-media { padding:18px 14px 12px; border-radius:16px; }
+  .spotify-artwork { width:56px; height:56px; }
+  .spotify-track { gap:12px; }
+  [data-spotify-title] { font-size:16px; }
+}
+/* Fit the main transport in a single grid cell. */
+.spotify-media { padding:16px 14px 10px; }
+.spotify-artwork { width:56px; height:56px; }
+.spotify-timeline { margin:14px 0 4px; }
+.spotify-times { margin-top:6px; }
+.spotify-transport .spotify-play { width:44px; height:44px; }

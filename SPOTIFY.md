@@ -58,3 +58,9 @@ Kaynaklar:
 - https://developer.spotify.com/documentation/web-api/reference/start-a-users-playback
 - https://developer.spotify.com/documentation/web-playback-sdk/reference
 - https://developer.spotify.com/documentation/web-api/concepts/quota-modes
+
+## Medya oynatıcı görünümü
+
+Ana yüz kapak, şarkı adı, sanatçı/albüm, geçen/toplam süre ve önceki–oynat/duraklat–sonraki kontrollerinden oluşur. Çalma listesi ve cihaz seçimi açılabilir bölümde tutulur. İlerleme çubuğu klavye okları veya sürüklemeyle şarkı konumunu değiştirir. Tarayıcıdaki SDK durum olayları anında işlenir; diğer cihazlar için oynatma bilgisi 15 saniyede bir ve komutlardan sonra yenilenir. Sekme gizliyken sorgu yapılmaz, hata halinde bekleme 30 saniyeye çıkar; widget kaldırıldığında zamanlayıcılar temizlenir.
+
+public/spotify-media.js görünümü ve süre/kapak güncellemelerini yönetir. server/spotify.mjs içindeki state ve seek işlemleri Spotify’dan canlı metaveri ve konum değişimini sağlar. Albüm kapağı yalnızca HTTPS i.scdn.co üzerinden yüklenir. Yerel ve Vercel CSP buna izin verir. Bu görünüm yeni izin kapsamı gerektirmez; mevcut user-read-playback-state ve user-modify-playback-state kullanılır. Eski bağlantı oynatıcısı Bağlantıdan oynat bölümünde korunur.

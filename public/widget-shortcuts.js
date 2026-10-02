@@ -113,6 +113,8 @@ export function installWidgetShortcuts(getWidgetType) {
     const target = card.querySelector(selectors[getWidgetType(card.dataset.id)] || '.widget-head') || card.querySelector('.widget-head');
     if (!target) return;
     event.preventDefault();
+    const disclosure=target.closest('details');
+    if(disclosure)disclosure.open=true;
     rememberNoteSelection();
     if (target.matches('.note-document')) focusNote(card, target);
     else {
