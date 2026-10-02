@@ -1,5 +1,5 @@
 const selectors = {
-  spotify: '.spotify-form input[name="spotifyUrl"]',
+  spotify: '[data-spotify-toggle]:not(:disabled)',
   tasks: '.add-task input[name="task"]',
   note: '.note-document',
   calendar: '.event-form input[name="event"]',

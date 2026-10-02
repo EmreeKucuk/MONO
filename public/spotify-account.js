@@ -58,7 +58,7 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
   const saved=spotifyContent(selectedUrl),playlistArea=area.querySelector('[data-spotify-playlist]');
   let selectedPlaylist=saved?.type==='playlist'?saved.id:'';
   const tracks=bindTracks(area,{request:spotifyRequest,setName:name=>{playlistArea.querySelector('[data-spotify-playlist-name]').textContent=name;},play:(playlistId,position)=>job(async()=>{
-    if(!devices.value)throw Error('Tam oynatma için Çalma listesi ve cihaz bölümünden Bu tarayıcıda oynat düğmesine bas veya bir Spotify cihazı seç.');
+    if(!devices.value)throw Error('Tam oynatma için Oynatma cihazı ve hesap bölümünden Bu tarayıcıda oynat düğmesine bas veya bir Spotify cihazı seç.');
     if(devices.value===browserId&&browserId)await activateSpotifyBrowser();
     await spotifyRequest('playback','POST',{action:'play',playlistId,position,deviceId:devices.value});
     media.commanded('play');say('Seçtiğin şarkı için tam oynatma başlatıldı.');await loadState();
@@ -122,8 +122,7 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
     const content=spotifyContent('https://open.spotify.com/playlist/'+lists.value);
     selectedPlaylist=content?.id||'';
     media.choose();showPlaylist(selectedPlaylist);
-    root.querySelector('.spotify-legacy iframe')?.remove();
-    root.querySelector('.spotify-legacy .spotify-actions')?.remove();
+    root.querySelector('.spotify-widget > iframe')?.remove();
     onPlaylist(content?.url||'');
   };
   area.querySelector('[data-spotify-shuffle]').onclick=()=>job(async()=>{

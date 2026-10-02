@@ -1,4 +1,4 @@
-const CACHE='mono-shell-v21';
+const CACHE='mono-shell-v22';
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/cloud.js','/draft-store.js','/state-schema.js','/task-groups.js','/notebook.js','/extra-widgets.js','/grid-layout.js','/widget-search.js','/widget-shortcuts.js','/name-dialog.js','/ui-utils.js','/focus-state.js','/workspace-model.js','/shell-view.js','/calendar-view.js','/editor-input.js','/grid-view.js','/styles/base.css','/styles/tasks-themes.css','/styles/notebooks-widgets.css','/styles/grid.css','/styles/interactions.css','/styles/overrides.css','/styles/workspace-shell.css','/spotify-url.js','/spotify-widget.js','/spotify-account.js','/spotify-media.js','/spotify-tracks.js','/styles/spotify.css','/favicon.svg','/manifest.webmanifest'])));
   self.skipWaiting();

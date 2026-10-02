@@ -218,9 +218,9 @@ test('sidebar preferences, persistent clock, full widget border and mobile contr
   await mobile.close();
 });
 
-test('Spotify widget validates, saves, keeps its player during grid updates and reflows on mobile',async()=>{
+test('saved Spotify playlist survives grid updates without the removed URL form and reflows on mobile',async()=>{
   const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}});
-  let remote=null,revision=0,loads=0;
+  let remote={widgets:[{id:'music',type:'spotify',spotifyUrl:'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M'}],events:[]},revision=0,loads=0;
   await context.route('https://open.spotify.com/embed/**',route=>{loads++;return route.fulfill({contentType:'text/html',body:'<!doctype html><button>Spotify test player</button>'});});
   await context.route('**/api/**',route=>{
     const request=route.request(),path=new URL(request.url()).pathname;
@@ -229,21 +229,17 @@ test('Spotify widget validates, saves, keeps its player during grid updates and 
     const input=request.postDataJSON();remote=input.state;revision++;return route.fulfill({json:{revision}});
   });
   const page=await context.newPage();await page.goto(base);await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('music@example.com'));
-  await page.locator('#widget-search-open').click();await page.locator('#widget-query').fill('spotify');await page.keyboard.press('Enter');
-  const card=page.locator('.widget').filter({has:page.locator('.spotify-form')}),input=card.locator('[name="spotifyUrl"]');
-  await card.locator('.spotify-legacy summary').click();
-  await input.fill('https://evil.test/playlist/37i9dQZF1DXcBWIGoYBM5M');await card.locator('[type="submit"]').click();
-  assert.equal(await input.getAttribute('aria-invalid'),'true');assert.equal(await card.locator('iframe').count(),0);
-  await input.fill('https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=example');await card.locator('[type="submit"]').click();
-  await card.locator('iframe').waitFor({state:'visible'});await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));
+  const card=page.locator('.widget').filter({has:page.locator('.spotify-widget')});
+  assert.equal(await card.locator('.spotify-form,.spotify-legacy,input[type=url]').count(),0);
+  await card.locator('iframe').waitFor({state:'visible'});
   assert.equal(remote.widgets.find(widget=>widget.type==='spotify').spotifyUrl,'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M');
-  const shortcut=await card.getAttribute('aria-keyshortcuts');await page.keyboard.press(shortcut);assert.ok(await page.evaluate(()=>document.activeElement.matches('.spotify-form input')));
+  const shortcut=await card.getAttribute('aria-keyshortcuts');await page.keyboard.press(shortcut);assert.ok(await page.evaluate(()=>document.activeElement.matches('.widget-head')));
   await card.locator('iframe').scrollIntoViewIfNeeded();await page.frameLocator('.spotify-player').getByRole('button').waitFor();
   const before=loads;await page.evaluate(()=>window.savedPlayer=document.querySelector('.spotify-player'));
   await page.locator('.widget-head').first().focus();await page.keyboard.press('ArrowRight');
   assert.ok(await page.evaluate(()=>window.savedPlayer===document.querySelector('.spotify-player')));
   await page.waitForTimeout(150);assert.equal(loads,before);
-  await page.reload();await card.locator('iframe').waitFor({state:'visible'});assert.match(await input.inputValue(),/open.spotify.com\/playlist\//);
+  await page.reload();await card.locator('iframe').waitFor({state:'visible'});assert.match(await card.locator('iframe').getAttribute('src'),/open.spotify.com\/embed\/playlist\//);
   await page.setViewportSize({width:320,height:700});
   if(await page.locator('#workspace-sidebar').isVisible())await page.locator('#sidebar-toggle').click();
   await card.scrollIntoViewIfNeeded();
@@ -267,7 +263,7 @@ test('connected Spotify account lists playlists, sends playback controls and act
     if(path.endsWith('/playlist')){
       if(failTracks)return route.fulfill({status:403,json:{error:'Kendi listeni seç.'}});
       const offset=Number(new URL(route.request().url()).searchParams.get('offset'));
-      return route.fulfill({json:{name:'My focus playlist <img onerror=evil>',cover:'javascript:evil',items:offset?[{position:50,name:'Page two',artist:'Artist',duration:120000,playable:true}]:[{position:0,name:'Unavailable',artist:'',duration:0,playable:false},{position:1,name:'Heat Waves <img onerror=evil>',artist:'Glass Animals',duration:180000,playable:true}],nextOffset:offset?null:50}});
+      return route.fulfill({json:{name:'My focus playlist <img onerror=evil>',cover:'javascript:evil',items:offset?Array.from({length:25},(_,index)=>({position:50+index,name:index?'More music '+index:'Page two',artist:'Artist',duration:120000,playable:true})):[{position:0,name:'Unavailable',artist:'',duration:0,playable:false},{position:1,name:'Heat Waves <img onerror=evil>',artist:'Glass Animals',duration:180000,playable:true}],nextOffset:offset?null:50}});
     }
     if(path.endsWith('/devices'))return route.fulfill({json:{devices:[{id:'phone',name:'My phone',active:true}]}});
     if(path.endsWith('/token'))return route.fulfill({json:{access_token:'memory-only-token'}});
@@ -285,6 +281,9 @@ test('connected Spotify account lists playlists, sends playback controls and act
   await context.route('https://i.scdn.co/image/test-cover',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#58434a"/></svg>'}));
   const page=await context.newPage();await page.goto(base);await page.locator('#tool-toggle').click();await page.locator('[data-add="spotify"]').click();
   const account=page.locator('.spotify-account');await account.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
+  assert.equal(await page.locator('.spotify-form,.spotify-legacy,input[name=spotifyUrl]').count(),0);
+  assert.ok((await account.locator('[data-spotify-lists]').boundingBox()).y<(await account.locator('.spotify-media').boundingBox()).y);
+  assert.equal(await account.locator('[data-spotify-lists]').evaluate(element=>getComputedStyle(element).borderRadius),'14px');
   await account.locator('.spotify-settings summary').click();
   await account.locator('[data-spotify-lists]').selectOption(playlist);
   const frame=account.locator('.spotify-playlist-player');await frame.waitFor({state:'attached'});
@@ -295,6 +294,14 @@ test('connected Spotify account lists playlists, sends playback controls and act
   assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,position:1,deviceId:'phone'});
   assert.equal(await rows.first().isDisabled(),true);assert.equal(await account.locator('[onerror]').count(),0);
   await account.locator('[data-tracks-more]').click();await rows.nth(2).waitFor({state:'visible'});
+  const scrollList=account.locator('.spotify-tracks-scroll');await scrollList.scrollIntoViewIfNeeded();
+  const scrollInfo=await scrollList.evaluate(element=>({height:element.clientHeight,total:element.scrollHeight,contain:getComputedStyle(element).overscrollBehaviorY}));
+  assert.ok(scrollInfo.total>scrollInfo.height);assert.equal(scrollInfo.contain,'contain');
+  const widgetBody=account.locator('xpath=ancestor::*[contains(@class,"widget-body")][1]'),scrollBounds=await scrollList.boundingBox(),bodyBounds=await widgetBody.boundingBox();
+  const oldOuter=await widgetBody.evaluate(element=>element.scrollTop);
+  await page.mouse.move(scrollBounds.x+scrollBounds.width/2,(Math.max(scrollBounds.y,bodyBounds.y)+Math.min(scrollBounds.y+scrollBounds.height,bodyBounds.y+bodyBounds.height))/2);
+  await page.mouse.wheel(0,600);await page.waitForTimeout(150);
+  assert.ok(await scrollList.evaluate(element=>element.scrollTop>0));assert.equal(await widgetBody.evaluate(element=>element.scrollTop),oldOuter);
   await rows.nth(2).click();await page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);assert.equal(commands.at(-1).position,50);
   assert.equal(await frame.getAttribute('src'),'https://open.spotify.com/embed/playlist/'+playlist+'?theme=0');
   assert.match(await account.locator('[data-spotify-playlist-name]').textContent(),/My focus playlist <img onerror=evil>/);
@@ -320,6 +327,8 @@ test('connected Spotify account lists playlists, sends playback controls and act
   await waitForCommand();await rows.nth(1).focus();await page.keyboard.press('Enter');await waitForCommand();
   assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,position:1,deviceId:'browser-device'});
   assert.equal(new URL(page.url()).origin,new URL(base).origin);
+  await page.keyboard.press(await account.evaluate(element=>element.closest('.widget').getAttribute('aria-keyshortcuts')));
+  assert.ok(await page.evaluate(()=>document.activeElement.matches('[data-spotify-toggle]')));
   assert.equal(await account.locator('.spotify-list-cover').getAttribute('src'),null);
   assert.equal(await account.locator('[data-spotify-title]').textContent(),'Heat Waves');
   assert.equal(await account.locator('[data-spotify-album]').textContent(),'Dreamland');
