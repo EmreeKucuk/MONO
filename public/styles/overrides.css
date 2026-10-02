@@ -112,7 +112,7 @@
   outline:none
 }
 .note-document[contenteditable="true"]:focus-visible{
-  box-shadow:inset 2px 0 0 var(--accent)
+  box-shadow:none
 }
 .note-document .block-input{
   white-space:pre-wrap;

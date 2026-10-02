@@ -178,3 +178,42 @@ test('IME composition keeps text and caret; completed text meets contrast in bot
   const contrast=async()=>page.evaluate(()=>{const text=document.querySelector('.task-row.done .task-text'),panel=text.closest('.widget');const toRgb=value=>value.match(/[\d.]+/g).slice(0,3).map(Number),linear=value=>{const channels=toRgb(value).map(n=>n/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;};const a=linear(getComputedStyle(text).color),b=linear(getComputedStyle(panel).backgroundColor);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);});
   assert.ok(await contrast()>=4.5);await page.locator('#theme-select').selectOption('navy');assert.ok(await contrast()>=4.5);await page.close();
 });
+
+test('sidebar preferences, persistent clock, full widget border and mobile controls',async()=>{
+  const page=await browser.newPage({viewport:{width:1440,height:900},serviceWorkers:'block'});
+  await page.goto(base);
+  assert.equal(await page.locator('#workspace-sidebar #grid-select').count(),1);
+  assert.equal(await page.locator('#workspace-sidebar #theme-select').count(),1);
+  await page.keyboard.press('Alt+3');
+  const note=page.locator('.note-document').first();
+  await page.evaluate(()=>window.originalNote=document.querySelector('.note-document'));
+  const border=await note.evaluate(element=>{
+    const style=getComputedStyle(element.closest('.widget'));
+    return {edges:[style.borderTopColor,style.borderRightColor,style.borderBottomColor,style.borderLeftColor],shadow:style.boxShadow};
+  });
+  assert.equal(new Set(border.edges).size,1);assert.match(border.shadow,/inset/);
+  await page.locator('#sidebar-toggle').click();
+  assert.equal(await page.locator('#workspace-sidebar').isVisible(),false);
+  assert.equal(await page.locator('#sidebar-toggle').getAttribute('aria-expanded'),'false');
+  assert.ok(await page.evaluate(()=>window.originalNote===document.querySelector('.note-document')));
+  await page.locator('[data-live-clock]').waitFor({state:'visible'});
+  assert.match(await page.locator('[data-live-clock]').innerText(),/^\d{2}:\d{2}:\d{2}$/);
+  await page.evaluate(()=>scrollTo(0,500));
+  assert.equal(Math.round((await page.locator('.topbar').boundingBox()).y),0);
+  await page.reload();assert.equal(await page.locator('#workspace-sidebar').isVisible(),false);
+  await page.locator('#sidebar-toggle').focus();await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#workspace-sidebar').isVisible(),true);
+  await page.locator('#theme-select').selectOption('navy');
+  await page.keyboard.press('Alt+3');
+  assert.match(await note.evaluate(element=>getComputedStyle(element.closest('.widget')).borderTopColor),/152, 185, 255/);
+  await page.close();
+  const mobile=await browser.newPage({viewport:{width:320,height:700},serviceWorkers:'block'});
+  await mobile.goto(base);assert.equal(await mobile.locator('#workspace-sidebar').isVisible(),false);
+  await mobile.locator('#sidebar-toggle').click();await mobile.locator('#theme-select').selectOption('navy');
+  assert.equal(await mobile.locator('#grid-select').isVisible(),true);
+  assert.ok(await mobile.locator('[data-live-date]').isVisible());
+  assert.ok(await mobile.locator('[data-live-clock]').isVisible());
+  assert.ok(await mobile.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await mobile.locator('#sidebar-toggle').click();assert.equal(await mobile.locator('#workspace-sidebar').isVisible(),false);
+  await mobile.close();
+});

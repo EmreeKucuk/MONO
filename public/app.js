@@ -19,6 +19,11 @@ const today=dateKey(new Date()), types={
 let user=null,view='board',toolbox=false,register=false,saveTimer,saveQueue=Promise.resolve(),saving=false,dirty=false,conflicted=false,revision=0,selectedDate=today,month=new Date(new Date().getFullYear(),new Date().getMonth(),1),installEvent=null;
 import { initial } from './workspace-model.js';
 let state=initial();
+let sidebarHidden=window.matchMedia('(max-width:760px)').matches;
+try {
+  const preference=localStorage.getItem('mono-sidebar-hidden');
+  if(preference!==null)sidebarHidden=preference==='true';
+} catch { /* Keep the responsive default if storage is unavailable. */ }
 function applyTheme(theme){
   document.documentElement.dataset.theme=theme==='navy'?'navy':'graphite';
   document.querySelector('meta[name="theme-color"]').content=theme==='navy'?'#0b1220':'#111312';
@@ -122,7 +127,7 @@ function exportWorkspace(){
 function shell(){
   normalizeGrid(state);
   $('#app').innerHTML=renderShell({
-    state,user,view,toolbox,dirty,conflicted,offline,types
+    state,user,view,toolbox,dirty,conflicted,offline,types,sidebarHidden
   });
   renderDesk();
   bindShell();
@@ -204,6 +209,16 @@ function addWidget(type,slot){
   return w;
 }
 function bindShell(){
+  $('#sidebar-toggle').onclick=()=>{
+    sidebarHidden=!sidebarHidden;
+    $('.shell').classList.toggle('sidebar-collapsed',sidebarHidden);
+    $('#workspace-sidebar').hidden=sidebarHidden;
+    const toggle=$('#sidebar-toggle'),label=sidebarHidden?'Sol paneli göster':'Sol paneli gizle';
+    toggle.setAttribute('aria-expanded',String(!sidebarHidden));
+    toggle.setAttribute('aria-label',label);
+    toggle.title=label;
+    try { localStorage.setItem('mono-sidebar-hidden',String(sidebarHidden)); } catch { /* Optional UI preference. */ }
+  };
   $('#widget-search-open').onclick=openWidgetSearch;
   $('#auto-arrange')?.addEventListener('change',e=>{
     state.autoArrange=e.target.checked;
