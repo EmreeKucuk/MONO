@@ -473,3 +473,34 @@ test('clipboard automatically enables capture and keeps a list-only UI with stab
   await page.keyboard.press(`Alt+${index}`);assert.ok(await page.locator('.clipboard-list').evaluate(list=>list===document.activeElement));
   assert.deepEqual(errors,[]);await context.close();
 });
+
+test('desktop update UI blocks offline unsaved edits, recovers install failures and prepares saved restart',async()=>{
+  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}});
+  await context.addInitScript(()=>{
+    let listener;window.installCalls=0;window.failInstall=true;
+    window.monoDesktop={clipboard:{onChange:()=>{}},zone:async()=>({}),reminders:{sync:async()=>true},updates:{
+      status:async()=>({phase:'ready',currentVersion:'1.2.4',version:'1.2.5'}),check:async()=>({phase:'current'}),
+      onChange:fn=>{listener=fn;},install:async()=>{window.installCalls++;if(window.failInstall)throw Error('Installer test failure');return true;}
+    }};
+    window.updateEvent=value=>listener?.(value);
+  });
+  let remote={widgets:[{id:'n',type:'note',text:'Original note',grid:{slot:0,cols:1,rows:1}}],events:[],gridColumns:2},revision=1,offline=false;
+  await context.route('**/api/**',route=>{const path=new URL(route.request().url()).pathname;
+    if(path==='/api/session')return route.fulfill({json:{configured:true,user:{id:'updates-user',email:'updates@example.com'}}});
+    if(path==='/api/workspace'){
+      if(offline)return route.abort('failed');
+      if(route.request().method()==='GET')return route.fulfill({json:{state:remote,revision}});
+      const input=route.request().postDataJSON();if(input.revision!==revision)return route.fulfill({status:409,json:{error:'Conflict'}});remote=input.state;return route.fulfill({json:{revision:++revision}});
+    }return route.fulfill({json:{}});
+  });
+  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);
+  await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('updates@example.com'));
+  assert.equal(await page.locator('#desktop-update').textContent(),'Güncelle ve yeniden başlat');
+  offline=true;await page.locator('.note-document').click();await page.keyboard.press('Control+a');await page.keyboard.type('Saved before update');await page.waitForTimeout(800);
+  await page.locator('#desktop-update').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('henüz kaydedilmedi'));
+  assert.equal(await page.evaluate(()=>installCalls),0);assert.equal(await page.locator('#app').evaluate(app=>app.inert),false);
+  offline=false;await page.locator('#save-status').click();await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));
+  await page.locator('#desktop-update').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent==='Installer test failure');assert.equal(await page.evaluate(()=>installCalls),1);assert.equal(await page.locator('#app').evaluate(app=>app.inert),false);
+  await page.evaluate(()=>{failInstall=false;});await page.locator('#desktop-update').click();await page.waitForFunction(()=>installCalls===2&&document.querySelector('#app').inert);
+  assert.equal(remote.widgets[0].pages[0].blocks[0].text,'Saved before update');assert.deepEqual(errors,[]);await context.close();
+});

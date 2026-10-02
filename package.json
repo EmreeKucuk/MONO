@@ -1,6 +1,6 @@
 {
   "name": "mono-workspace",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "test:live": "node scripts/verify-live-rls.mjs",
     "desktop:dev": "node desktop/dev.mjs",
     "desktop:start": "electron desktop/main.mjs",
-    "desktop:build": "electron-builder --win nsis",
+    "desktop:build": "electron-builder --win nsis --publish never",
     "test:desktop": "node --test tests/desktop.integration.mjs",
     "predesktop:build": "node scripts/desktop-prepare.mjs"
   },
@@ -56,8 +56,22 @@
       "installerIcon": "desktop/icon.ico",
       "uninstallerIcon": "desktop/icon.ico"
     },
-    "electronDist": "node_modules/electron/dist"
+    "electronDist": "node_modules/electron/dist",
+    "publish": {
+      "provider": "github",
+      "owner": "EmreeKucuk",
+      "repo": "mono",
+      "releaseType": "release"
+    },
+    "artifactName": "MONO-Setup-${version}.${ext}"
   },
   "description": "MONO personal workspace desktop companion",
-  "author": "MONO"
+  "author": "MONO",
+  "dependencies": {
+    "electron-updater": "6.8.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EmreeKucuk/mono.git"
+  }
 }

@@ -1,4 +1,4 @@
-# MONO 1.2.3 · Masaüstü ve yeni dashboard araçları
+# MONO 1.2.4 · Masaüstü ve yeni dashboard araçları
 
 MONO artık Electron ile gerçek Windows uygulaması olarak paketlenebilir. Web/PWA sürümü de çalışır. Uygulama mevcut HTTPS yayınını açar; Node ve dosya sistemi web sayfasına açılmaz. Yalnızca doğrulanan ana pencereye dar bir preload/IPC köprüsü verilir. Spotify bağlantısı ve Supabase hesabı aynı BFF üzerinden devam eder.
 
@@ -19,7 +19,7 @@ Bu komut yerel BFF'yi ve masaüstü uygulamasını birlikte başlatır. `.env` s
 npm run desktop:build
 ```
 
-`release/MONO Setup 1.2.3.exe` kullanıcıya özel Windows x64 kurulum dosyasıdır. Ücretli imzalama sertifikası kullanılmadı. Pencereyi kapatmak sistem tepsisine gizler; tepsideki Çıkış uygulamayı tamamen kapatır. Hatırlatmalar uygulama tepside çalışırken devam eder. Uygulama tamamen kapalıyken, bilgisayar kapalıyken veya uyku halindeyken bildirim garantisi yoktur; yeniden çalışınca gecikmiş hatırlatmaları kontrol eder. Otomatik güncelleme henüz eklenmedi; web arayüzü yayından yüklenir, yerel Electron katmanı yeni kurulumla güncellenir.
+`release/MONO-Setup-1.2.4.exe` kullanıcıya özel Windows x64 kurulum dosyasıdır. Ücretli imzalama sertifikası kullanılmadı. Pencereyi kapatmak sistem tepsisine gizler; tepsideki Çıkış uygulamayı tamamen kapatır. Hatırlatmalar uygulama tepside çalışırken devam eder. Uygulama tamamen kapalıyken, bilgisayar kapalıyken veya uyku halindeyken bildirim garantisi yoktur; yeniden çalışınca gecikmiş hatırlatmaları kontrol eder. Web arayüzü Vercel yayınından yüklenir. 1.2.4 ve sonrası yerel Electron güncellemelerini GitHub Releases üzerinden alır; ilk geçişte 1.2.4 kurulumunu elle yükle.
 
 ## Özellikler
 
@@ -58,3 +58,29 @@ Yeni sayfa koruması tam olarak dört ASCII rakam ister; baştaki sıfırlar kor
 ## 1.2.3 Sade clipboard
 
 Eski kapalı yakalama tercihi başlangıçta açık olarak okunur; geçmiş korunur. Yeni web arayüzü eski masaüstü sürümünde de widget açıldığında yakalamayı etkinleştirir. Uygulama açılır açılmaz sürekli yakalama için 1.2.3 kurulumunu yükle; sade arayüz için Vercel web yayınını yenile. Tarayıcı testinde native köprü taklidiyle otomatik etkinleşme, canlı güncelleme, güvenli metin gösterimi ve klavye odağı doğrulanır.
+
+
+## 1.2.4 GitHub Releases ve otomatik güncelleme
+
+Sabit güncelleme kaynağı herkese açık `EmreeKucuk/mono` reposudur. Uygulamaya GitHub tokenı gömülmez. `electron-updater` başlangıçta ve dört saatte bir kararlı sürümleri kontrol eder, yenisini indirir. Sol panelde durum, yüzde, tekrar deneme ve Güncelle ve yeniden başlat butonu vardır. Düşürme/prerelease/web installer kapalıdır; çıkışta otomatik kurulum kapalıdır. Yeniden başlatma yalnızca açık kullanıcı eylemiyle olur.
+
+Not şifrelemesi ve mevcut kayıt kuyruğu beklenir; kaydedilmemiş veya çakışmalı çalışma alanı varsa kurulum başlamaz. Çevrimdışı bekleyen değişiklikler senkronize edilmeden yeniden başlatılmaz. Misafir önizlemesindeki değişiklikler önce hesaba kaydedilmelidir. Clipboard şifreli disk kaydı başarısızsa native katman da yeniden başlatmayı durdurur. Güncelleme sırasında yeni düzenleme engellenir; hata halinde açılır. Aynı appId ve kullanıcı veri klasörü korunur.
+
+Paket imzasızdır; updater indirme dosyasının metadata SHA-512 değerini kontrol eder fakat Authenticode yayıncı kimliği güvencesi yoktur. İmzalama sertifikası eklenirse CI imzalama ve yayıncı doğrulaması ayrıca yapılandırılmalıdır. Repo adını/sahibini değiştirmeden veya repoyu silmeden önce kurulu istemcilerin sabit güncelleme kaynağını dikkate al.
+
+### İlk yayın
+
+1. Bu değişiklikleri `main` dalına gönder, Vercel arayüzünü yeniden yayınla.
+2. GitHub Settings → Actions bölümünde Actions çalışmasına izin ver. Workflow yalnızca sürüm job’u için `contents: write` ister; organization kısıtlıysa repo yöneticisi bu izni açmalıdır. Supabase/Spotify anahtarları bu workflow’da kullanılmaz.
+3. Paket sürümüne eşit tag oluştur ve gönder:
+
+```powershell
+git tag v1.2.4
+git push origin v1.2.4
+```
+
+`.github/workflows/release.yml` Windows üzerinde npm ci, test, build ve paket doğrulamasını çalıştırır. Kurulum, blockmap ve latest.yml tamamlanana kadar release taslak kalır; yükleme bittiğinde yayınlanır. Metadata ve installer dosya adları aynıdır. İlk kurulum için Releases’tan MONO-Setup-1.2.4.exe indir. 1.2.3 ve önceki sürümler kendi kendine bu sürüme geçemez.
+
+### Sonraki sürümler
+
+`npm version patch --no-git-tag-version` ile sürümü artır; değişiklikleri commit/push et, eşleşen `v1.2.5` tag’ini gönder. Aynı tag veya release üzerine dosya yazılmaz. Başarısız yükleme taslak bırakırsa Actions logunu incele, yalnızca başarısız taslağı sil ve aynı tag workflow’unu yeniden çalıştır. Yayınlanmış sürümü değiştirmek yerine daha yüksek sürüm çıkar. Otomatik güncelleme altyapısı burada test doubles ile doğrulandı; gerçek Windows kurulumundan daha yüksek yayınlanmış sürüme uçtan uca geçiş, release yayınlandıktan sonra ayrıca denenmelidir.

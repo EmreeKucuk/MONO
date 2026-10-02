@@ -1,0 +1,53 @@
+name: Windows release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      MONO_BROWSER_CHANNEL: chromium
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Validate version tag and repository
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          if ($env:GITHUB_REF -ne "refs/tags/v$version") { throw "Run on the v$version tag; package version must match." }
+          if ('${{ github.repository }}' -ne 'EmreeKucuk/mono') { throw 'Configure the update feed before releasing a fork.' }
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npm test
+      - run: npm run build
+      - name: Package without publishing
+        run: npm run desktop:build -- --publish never
+      - name: Verify release metadata
+        run: node scripts/verify-release.mjs
+      - name: Upload complete draft and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'Release already exists; use a new version and tag.' }
+          gh release create $tag --verify-tag --draft --title "MONO $tag" --generate-notes
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $assets = @((Get-ChildItem 'release/*.exe').FullName) + @((Get-ChildItem 'release/*.blockmap').FullName) + @((Resolve-Path 'release/latest.yml').Path)
+          gh release upload $tag @assets
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release edit $tag --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

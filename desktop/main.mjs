@@ -2,6 +2,8 @@ import {app,BrowserWindow,ipcMain,clipboard,Notification,Tray,Menu,nativeImage,s
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import electronUpdater from 'electron-updater';
+import {createUpdateController} from './updates.mjs';
 import {createClipboardController} from './clipboard.mjs';
 import {appOrigin,validPolicy,canNotify,validReminders} from './policy.mjs';
 const folder=dirname(fileURLToPath(import.meta.url));
@@ -10,6 +12,7 @@ if(process.env.MONO_DESKTOP_DATA_DIR)app.setPath('userData',resolve(process.env.
 app.setAppUserModelId('com.mono.dashboard');
 const primary=app.requestSingleInstanceLock();if(!primary)app.quit();
 app.on('second-instance',()=>{win?.show();win?.focus();});
+let updates;
 let win,tray,quitting=false,history={enabled:true,items:[]},reminders=[],delivered=new Set(),policy={active:false,until:0,allowed:[]},saving=Promise.resolve(),storageError='',clipboardError='';
 const historyState=()=>({...history,durable:!storageError&&safeStorage.isEncryptionAvailable(),error:clipboardError||storageError});
 const historyPath=()=>resolve(app.getPath('userData'),'clipboard.encrypted');
@@ -65,6 +68,16 @@ win.on('close',event=>{if(!quitting){event.preventDefault();win.hide();}});
 win.webContents.on('did-fail-load',(_,code,message,url,isMain)=>{if(isMain&&code!==-3)win.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="tr"><body style="background:#111312;color:#eee;font:16px system-ui;padding:40px"><h1>MONO yüklenemedi</h1><p>Bağlantını ve yayın adresini kontrol edip uygulamayı yeniden aç.</p></body></html>'));});
 const image=nativeImage.createFromPath(resolve(folder,'icon.png')).resize({width:24,height:24});
 tray=new Tray(image);tray.setToolTip('MONO '+app.getVersion());tray.setContextMenu(Menu.buildFromTemplate([{label:'MONO’yu aç',click:()=>{win.show();win.focus();}},{label:'Çıkış',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',()=>{win.show();win.focus();});
+updates=createUpdateController({updater:electronUpdater.autoUpdater,enabled:app.isPackaged&&process.env.MONO_DESKTOP_TEST!=='1',version:app.getVersion(),
+  publish:value=>{if(win&&!win.isDestroyed())win.webContents.send('mono:update-changed',value);},
+  prepareQuit:async()=>{await saving;if(storageError)throw Error('Clipboard kaydı tamamlanamadı. Önce kayıt sorununu çöz.');},
+  install:()=>{quitting=true;try{electronUpdater.autoUpdater.quitAndInstall(false,true);}catch(error){quitting=false;throw error;}}
+});
+handle('update-status',()=>updates.status());
+handle('update-check',()=>updates.check());
+handle('update-install',async confirmed=>{if(confirmed!==true)throw Error('Yeniden başlatma onayı gerekli.');await updates.restart();return true;});
+const updateTimer=setInterval(()=>updates.check(),4*60*60*1000);updateTimer.unref();
+win.webContents.on('did-finish-load',()=>updates.check());
 handle('clipboard-list',historyState);
 handle('clipboard-watch',async enabled=>{if(typeof enabled!=='boolean')throw Error('Geçersiz pano ayarı.');history.enabled=true;await persistHistory();await capture();return historyState();});
 handle('clipboard-capture',async()=>{await capture();return historyState();});

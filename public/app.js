@@ -1,3 +1,4 @@
+import {bindDesktopUpdates,installDesktopUpdates} from './desktop-updates.js';
 import {bindDashboard,installDashboard,syncDashboard,dashboardNotification} from './dashboard-features.js';
 import {bindWeather} from './weather.js';
 import {flushEncryption,hasPendingEncryption} from './note-vault.js';
@@ -21,6 +22,7 @@ import { captureFocus,restoreFocus } from './focus-state.js';
 const today=dateKey(new Date()), types={
   tasks:['Yapılacaklar','Bir sonraki adımın'],note:['Notlar','Sayfalar, başlıklar ve hızlı komutlar'],calendar:['Takvim','Günlerini planla'],focus:['Odak sayacı','Tek bir şeye odaklan'],...extraTypes
 };
+let updatePrepared=false;
 let user=null,view='board',toolbox=false,register=false,saveTimer,saveQueue=Promise.resolve(),saving=false,dirty=false,conflicted=false,revision=0,selectedDate=today,month=new Date(new Date().getFullYear(),new Date().getMonth(),1),installEvent=null;
 import { initial } from './workspace-model.js';
 let state=initial();
@@ -141,6 +143,7 @@ function shell(){
   bindShell();
   bindDashboard();
   bindWeather(askName);
+  bindDesktopUpdates();
   updateClock();
   if(installEvent)$('#install').hidden=false;
 }
@@ -528,6 +531,7 @@ setInterval(()=>{
   }
 },500);
 window.addEventListener('beforeunload',e=>{
+  if(updatePrepared)return;
   if(hasPendingEncryption()||user&&(dirty||saving)){
     e.preventDefault();
     e.returnValue='';
@@ -544,6 +548,16 @@ window.addEventListener('beforeinstallprompt',e=>{
 });
 const openWidgetSearch=installWidgetSearch(types,addWidget,icon);
 installWidgetShortcuts(id=>state.widgets.find(widget=>widget.id===id)?.type);
+installDesktopUpdates({notify,cancel:()=>{updatePrepared=false;},prepare:async()=>{
+  clearTimeout(saveTimer);
+  await flushEncryption();
+  if(conflicted)throw Error('Güncellemeden önce kayıt çakışmasını çöz.');
+  if(!user&&dirty)throw Error('Önizlemedeki değişiklikleri önce hesabına kaydet veya dışa aktar.');
+  await saveQueue.catch(()=>{});
+  if(user&&(dirty||hasPendingDraft()))await persist();
+  if(conflicted||dirty||hasPendingDraft()||hasPendingEncryption())throw Error('Değişiklikler henüz kaydedilmedi. Bağlantıyı ve kaydı kontrol edip tekrar dene.');
+  updatePrepared=true;
+}});
 installDashboard({state:()=>state,changed,notify,askName,calendar:()=>state.widgets.filter(w=>w.type==='calendar').forEach(w=>renderWidget(w.id))});
 shell();
 try{

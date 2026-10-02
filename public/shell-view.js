@@ -31,6 +31,7 @@ export function renderShell({state,user,view,toolbox,dirty,conflicted,offline,ty
       </section>
       <div class="sidebar-bottom">
         <div class="sidebar-note">Kendi düzenin.<br>Kendi ritmin.</div>
+        <button id="desktop-update" hidden class="wide" aria-live="polite">Güncellemeleri kontrol et</button>
         <button id="install" hidden class="wide">Masaüstüne yükle</button>
         <div class="profile"><div class="avatar">${user?escape(user.email.slice(0,2).toUpperCase()):'M'}</div><div><span>${user?'Kişisel hesap':'Misafir alanı'}</span><small>${user?escape(user.email):'Önizleme modu'}</small></div></div>
       </div>
