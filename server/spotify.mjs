@@ -1,6 +1,8 @@
 import {createCipheriv,createDecipheriv,createHash,randomBytes,timingSafeEqual} from 'node:crypto';
 const scopes='playlist-read-private playlist-read-collaborative user-read-playback-state user-modify-playback-state streaming user-read-email user-read-private';
 const fail=(status,message)=>Object.assign(Error(message),{status});
+const spotifyId=id=>typeof id==='string'&&/^[a-zA-Z0-9]{22}$/.test(id);
+function artwork(value){try{const url=new URL(value);return url.protocol==='https:'&&url.hostname==='i.scdn.co'&&!url.username&&!url.password&&!url.port?url.href:null;}catch{return null;}}
 export function spotifyConfig(){
   const clientId=process.env.SPOTIFY_CLIENT_ID||'',clientSecret=process.env.SPOTIFY_CLIENT_SECRET||'',redirectUri=process.env.SPOTIFY_REDIRECT_URI||'',key=Buffer.from(process.env.SPOTIFY_COOKIE_SECRET||'','base64');
   let valid=false;
@@ -72,12 +74,27 @@ export async function handleSpotify(req,res,{authenticated,body,json}){
     const data=await api(value,`/me/playlists?limit=50&offset=${offset}`);
     json(res,200,{items:(data.items||[]).filter(item=>/^[a-zA-Z0-9]{22}$/.test(item?.id)).map(item=>({id:item.id,name:String(item.name||'Çalma listesi').slice(0,300),owner:String(item.owner?.display_name||'').slice(0,100)})),nextOffset:data.next&&offset+50<=100000?offset+50:null});return;
   }
+  if(action==='playlist'&&req.method==='GET'){
+    const id=url.searchParams.get('id'),offset=Number(url.searchParams.get('offset')||0);
+    if(!spotifyId(id)||!Number.isSafeInteger(offset)||offset<0||offset>100000)throw fail(400,'Geçersiz çalma listesi veya sayfa.');
+    let data,meta;
+    try{[data,meta]=await Promise.all([api(value,`/playlists/${id}/items?limit=50&offset=${offset}`),offset===0?api(value,`/playlists/${id}`):null]);}
+    catch(error){if(error.status===403)throw fail(403,'Spotify bu listenin şarkılarına erişim vermedi. Kendi oluşturduğun veya ortak düzenlediğin bir liste seç.');throw error;}
+    json(res,200,{name:meta?String(meta.name||'Çalma listesi').slice(0,300):null,cover:artwork(meta?.images?.[0]?.url),items:(data.items||[]).slice(0,50).map((entry,index)=>{
+      const track=entry?.item||entry?.track;
+      return {position:offset+index,name:String(track?.name||'Kullanılamayan şarkı').slice(0,300),artist:(track?.artists||[]).map(a=>String(a.name||'')).join(', ').slice(0,300),duration:Math.max(0,Number(track?.duration_ms)||0),playable:Boolean(spotifyId(track?.id)&&track?.type==='track'&&!entry?.is_local&&track?.is_playable!==false)};
+    }),nextOffset:data.next&&offset+50<=100000?offset+50:null});return;
+  }
   if(action==='devices'&&req.method==='GET'){const data=await api(value,'/me/player/devices');json(res,200,{devices:(data.devices||[]).filter(d=>!d.is_restricted&&typeof d.id==='string').map(d=>({id:d.id,name:String(d.name).slice(0,100),active:d.is_active}))});return;}
   if(action==='playback'&&req.method==='POST'){
     const input=await body(req),device=input.deviceId;
     if(typeof device!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(device))throw fail(400,'Bir Spotify cihazı seç.');
     const suffix='?device_id='+encodeURIComponent(device);
-    if(input.action==='play'){if(!/^[a-zA-Z0-9]{22}$/.test(input.playlistId||''))throw fail(400,'Bir çalma listesi seç.');await api(value,'/me/player/play'+suffix,'PUT',{context_uri:'spotify:playlist:'+input.playlistId});}
+    if(input.action==='play'){
+      if(!spotifyId(input.playlistId))throw fail(400,'Bir çalma listesi seç.');
+      if(input.position!==undefined&&(!Number.isSafeInteger(input.position)||input.position<0||input.position>100000))throw fail(400,'Geçersiz şarkı konumu.');
+      await api(value,'/me/player/play'+suffix,'PUT',{context_uri:'spotify:playlist:'+input.playlistId,...(input.position===undefined?{}:{offset:{position:input.position},position_ms:0})});
+    }
     else if(input.action==='shuffle'){
       if(typeof input.enabled!=='boolean')throw fail(400,'Karışık çalma durumu geçersiz.');
       await api(value,'/me/player/shuffle'+suffix+'&state='+input.enabled,'PUT');

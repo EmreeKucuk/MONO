@@ -28,6 +28,8 @@ test('Spotify OAuth uses PKCE, encrypted cookies, identity isolation, refresh an
       assert.equal(options.headers.Authorization,'Bearer renewed-access');
       if(address.includes('/me/playlists'))return answer({items:[{id:'37i9dQZF1DXcBWIGoYBM5M',name:'My playlist',owner:{display_name:'Me'}}],next:null});
       if(address.includes('/devices'))return answer({devices:[{id:'device-1',name:'Phone',is_active:true,is_restricted:false}]});
+      if(address.includes('/playlists/')&&address.includes('/items'))return answer({items:[{item:null},{item:{id:'37i9dQZF1DXcBWIGoYBM5M',type:'track',name:'<img onerror=evil>',duration_ms:90000,artists:[{name:'Artist'}]}},{track:{id:'37i9dQZF1DXcBWIGoYBM5M',type:'track',name:'Legacy',is_playable:false}}],next:null});
+      if(address.includes('/playlists/'))return answer({name:'My list',images:[{url:'javascript:alert(1)'}]});
       if(address.endsWith('/me/player'))return answer({shuffle_state:true,is_playing:true,progress_ms:1000,item:{name:'Song',duration_ms:180000,artists:[{name:'Artist'}],album:{name:'Album',images:[{url:'javascript:alert(1)'}]}}});
       return new Response(null,{status:204});
     }
@@ -55,6 +57,14 @@ test('Spotify OAuth uses PKCE, encrypted cookies, identity isolation, refresh an
     const tokenResponse=await call('/api/spotify/token',current);assert.deepEqual(await tokenResponse.json(),{access_token:'renewed-access'});assert.equal(tokenResponse.headers.get('cache-control'),'no-store');
     assert.equal((await call('/api/spotify/playback',current,'POST',{action:'play',playlistId:'37i9dQZF1DXcBWIGoYBM5M',deviceId:'device-1'})).status,200);
     assert.equal(JSON.parse(calls.at(-1).body).context_uri,'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
+    const items=await (await call('/api/spotify/playlist?id=37i9dQZF1DXcBWIGoYBM5M',current)).json();
+    assert.equal(items.cover,null);assert.equal(items.items[0].playable,false);assert.equal(items.items[1].position,1);assert.equal(items.items[1].name,'<img onerror=evil>');assert.equal(items.items[2].playable,false);
+    const page=await (await call('/api/spotify/playlist?id=37i9dQZF1DXcBWIGoYBM5M&offset=50',current)).json();assert.equal(page.items[1].position,51);
+    assert.equal((await call('/api/spotify/playlist?id=bad',current)).status,400);
+    assert.equal((await call('/api/spotify/playlist?id=37i9dQZF1DXcBWIGoYBM5M&offset=-1',current)).status,400);
+    assert.equal((await call('/api/spotify/playback',current,'POST',{action:'play',playlistId:'37i9dQZF1DXcBWIGoYBM5M',position:1,deviceId:'device-1'})).status,200);
+    assert.deepEqual(JSON.parse(calls.at(-1).body),{context_uri:'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M',offset:{position:1},position_ms:0});
+    assert.equal((await call('/api/spotify/playback',current,'POST',{action:'play',playlistId:'37i9dQZF1DXcBWIGoYBM5M',position:-1,deviceId:'device-1'})).status,400);
     const state=await (await call('/api/spotify/state',current)).json();assert.equal(state.track.name,'Song');assert.equal(state.track.cover,null);assert.equal(state.position,1000);
     assert.equal(state.shuffle,true);
     for(const enabled of [true,false]){
@@ -72,6 +82,8 @@ test('Spotify OAuth uses PKCE, encrypted cookies, identity isolation, refresh an
     assert.equal((await call('/api/spotify/playlists?offset=-1',current)).status,400);
     const csrf=await originalFetch(base+'/api/spotify/connect',{method:'POST',headers:{Cookie:a,Origin:'https://attacker.test','Content-Type':'application/json'},body:'{}'});assert.equal(csrf.status,403);
     upstreamStatus=429;assert.equal((await call('/api/spotify/devices',current)).status,429);
+    upstreamStatus=403;const denied=await call('/api/spotify/playlist?id=37i9dQZF1DXcBWIGoYBM5M',current);
+    assert.equal(denied.status,403);assert.match((await denied.json()).error,/ortak düzenlediğin/);
     const logout=await call('/api/logout',current,'POST',{});assert.ok(logout.headers.getSetCookie().some(value=>value.startsWith('mono_spotify=;')&&value.includes('Max-Age=0')));
   }finally{app.close();globalThis.fetch=originalFetch;for(const key of Object.keys(process.env))if(!(key in env))delete process.env[key];Object.assign(process.env,env);}
 });

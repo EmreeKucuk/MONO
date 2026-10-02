@@ -63,7 +63,13 @@ Kaynaklar:
 
 Karışık çal düğmesi, seçilen Spotify Connect cihazındaki karışık çalma durumunu açar/kapatır. Başarısız istekte düğme eski durumunu korur ve hata mesajı gösterilir. Yeni bir izin kapsamı veya API anahtarı gerekmez.
 
-Hesaptan bir çalma listesi seçildiğinde resmi Spotify Embed görünümü medya kontrollerinin altında açılır ve şarkıları listeler. Seçim mevcut spotifyUrl alanına kaydedilir; sayfa yeniden açıldığında korunur. Listeyi kaldır düğmesi bu seçimi temizler. Embed kendi Spotify oynatıcısını kullanır; üstteki özel kontroller seçilmiş Connect cihazını yönetir, iframe ile doğrudan senkronizasyon yapılmaz. Embed içeriği Spotify'ın erişim kurallarına bağlıdır; gösterilemeyen listeler için Listeyi Spotify’da aç bağlantısı kullanılır.
+Hesap bağlıyken seçili playlistin kapağı, adı ve şarkıları MONO içinde API üzerinden gösterilir. Satıra tıklamak seçilen Connect cihazına playlist context_uri + offset.position ile tam oynatma komutu gönderir. Önce Çalma listesi ve cihaz bölümünden Bu tarayıcıda oynat ile SDK cihazını etkinleştir veya açık bir Spotify cihazı seç. Premium ve tarayıcı DRM desteği gerekir; önizleme ses dosyaları kullanılmaz. Şarkılar 50 öğelik sayfalarla yüklenir, boş/kullanılamayan/yerel kayıtlar sıra numaraları korunarak devre dışı gösterilir. Hatalar ve yeniden deneme panelde görünür. Hızlı liste değişiminde eski yanıtlar atılır.
+
+Güncel GET /playlists/{id}/items endpoint'i yalnızca kullanıcının sahibi veya ortak düzenleyicisi olduğu listelerin içeriğine erişir; diğer listelerde Spotify 403 döndürür ve açıklama gösterilir. Eski /tracks endpoint'ine veya başka bir erişim yoluna geçilmez. Kaynak: https://developer.spotify.com/documentation/web-api/reference/get-playlists-items
+
+Seçim mevcut spotifyUrl alanına kaydedilir; sayfa yeniden açıldığında korunur. Listeyi kaldır düğmesi bu seçimi temizler. Hesap bağlı değilken resmi Embed korunur; kendi oynatıcısını kullanır ve önizlemeyle sınırlı kalabilir. API listesi açıkken playlist Embed gizlenir; şarkı seçimi MONO içinden yapılır. Görüntülenemeyen listeler için Listeyi Spotify’da aç bağlantısı kullanılabilir.
+
+public/spotify-tracks.js geçici liste modelini, güvenli metin/kapak render'ını, sayfalamayı ve yeniden denemeyi yönetir. Otomatik testlerde tek şarkı seçimi, sayfa konumunun korunması, başarısız yüklemeyi yeniden deneme ve zararlı metadata doğrulanır. Gerçek Premium ses oynatımı hâlâ canlı hesapla doğrulanmalıdır.
 
 Ana yüz kapak, şarkı adı, sanatçı/albüm, geçen/toplam süre ve önceki–oynat/duraklat–sonraki kontrollerinden oluşur. Çalma listesi ve cihaz seçimi açılabilir bölümde tutulur. İlerleme çubuğu klavye okları veya sürüklemeyle şarkı konumunu değiştirir. Tarayıcıdaki SDK durum olayları anında işlenir; diğer cihazlar için oynatma bilgisi 15 saniyede bir ve komutlardan sonra yenilenir. Sekme gizliyken sorgu yapılmaz, hata halinde bekleme 30 saniyeye çıkar; widget kaldırıldığında zamanlayıcılar temizlenir.
 

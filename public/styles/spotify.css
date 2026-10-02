@@ -68,3 +68,14 @@
 .spotify-playlist h3 { font-size:13px; font-weight:550; margin:0 0 10px; overflow-wrap:anywhere; }
 .spotify-playlist-player { min-height:360px; }
 .spotify-playlist a { display:inline-block; margin-top:8px; font-size:11px; color:var(--accent); }
+.spotify-account[data-linked=true] .spotify-playlist-player { display:none; }
+.spotify-native-list { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px; }
+.spotify-list-cover { width:96px; height:96px; object-fit:contain; border-radius:8px; }
+.spotify-native-list p { color:var(--muted); font-size:12px; line-height:1.5; }
+.spotify-native-list ol { list-style:none; padding:0; margin:8px 0; }
+.spotify-track-row { display:grid; grid-template-columns:20px minmax(0,1fr) auto; align-items:center; gap:8px; width:100%; padding:10px 4px; background:transparent; border:0; text-align:left; font-size:12px; }
+.spotify-track-row:hover { background:var(--line); }
+.spotify-track-row:disabled { opacity:.55; }
+.spotify-row-text { display:grid; gap:4px; min-width:0; }
+.spotify-row-text strong,.spotify-row-text>span { overflow-wrap:anywhere; }
+.spotify-row-text>span { color:var(--muted); font-size:11px; }

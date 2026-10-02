@@ -1,5 +1,6 @@
 import {bindMedia} from './spotify-media.js';
 import {spotifyContent} from './spotify-url.js';
+import {bindTracks} from './spotify-tracks.js';
 export async function spotifyRequest(action,method='GET',data){
   const response=await fetch('/api/spotify/'+action,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),cache:'no-store'});
   const result=await response.json().catch(()=>({}));
@@ -56,7 +57,14 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
   const media=bindMedia(area);
   const saved=spotifyContent(selectedUrl),playlistArea=area.querySelector('[data-spotify-playlist]');
   let selectedPlaylist=saved?.type==='playlist'?saved.id:'';
+  const tracks=bindTracks(area,{request:spotifyRequest,setName:name=>{playlistArea.querySelector('[data-spotify-playlist-name]').textContent=name;},play:(playlistId,position)=>job(async()=>{
+    if(!devices.value)throw Error('Tam oynatma için Çalma listesi ve cihaz bölümünden Bu tarayıcıda oynat düğmesine bas veya bir Spotify cihazı seç.');
+    if(devices.value===browserId&&browserId)await activateSpotifyBrowser();
+    await spotifyRequest('playback','POST',{action:'play',playlistId,position,deviceId:devices.value});
+    media.commanded('play');say('Seçtiğin şarkı için tam oynatma başlatıldı.');await loadState();
+  })});
   function showPlaylist(id){
+    tracks.select(id,connected);
     const content=spotifyContent('https://open.spotify.com/playlist/'+id);
     if(!content){playlistArea.hidden=true;playlistArea.querySelector('iframe')?.remove();return;}
     playlistArea.hidden=false;
@@ -72,8 +80,9 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
   const addOption=(select,value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);};
   const job=async action=>{
     if(busy)return;busy=true;area.setAttribute('aria-busy','true');
+    const disabledRows=new Map([...area.querySelectorAll('.spotify-track-row')].map(button=>[button,button.disabled]));
     area.querySelectorAll('button').forEach(button=>button.disabled=true);
-    try{await action();}catch(error){say(error.message);}finally{busy=false;area.removeAttribute('aria-busy');area.querySelectorAll('button').forEach(button=>button.disabled=false);area.querySelectorAll('.spotify-transport button,[data-spotify-shuffle]').forEach(button=>button.disabled=!connected);area.querySelector('[data-spotify-more]').hidden=nextOffset===null;}
+    try{await action();}catch(error){say(error.message);}finally{busy=false;area.removeAttribute('aria-busy');area.querySelectorAll('button').forEach(button=>button.disabled=button.matches('.spotify-track-row')?(disabledRows.get(button)??button.disabled):false);area.querySelectorAll('.spotify-transport button,[data-spotify-shuffle]').forEach(button=>button.disabled=!connected);area.querySelector('[data-spotify-more]').hidden=nextOffset===null;}
   };
   async function loadState(){
     if(!connected||polling||!area.isConnected||document.hidden)return;
@@ -108,7 +117,7 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
   area.querySelector('[data-spotify-refresh]').onclick=()=>job(async()=>{say('Listeler ve cihazlar yükleniyor…');await loadLists(true);await loadDevices();});
   area.querySelector('[data-spotify-more]').onclick=()=>job(async()=>{offset=nextOffset;await loadLists();});
   area.querySelector('[data-spotify-browser]').onclick=()=>job(async()=>{say('Tarayıcı oynatıcısı hazırlanıyor…');browserId=await activateSpotifyBrowser();await loadDevices();devices.value=browserId;say('Bu tarayıcı hazır. Bir çalma listesi seçip Oynat’a bas.');});
-  area.querySelector('[data-spotify-disconnect]').onclick=()=>job(async()=>{await spotifyRequest('disconnect','POST',{});connected=false;clearTimeout(pollTimer);clearInterval(tickTimer);stopSpotifyBrowser();media.clear();controls.hidden=true;connect.hidden=false;say('Spotify bağlantısı kaldırıldı.');});
+  area.querySelector('[data-spotify-disconnect]').onclick=()=>job(async()=>{await spotifyRequest('disconnect','POST',{});connected=false;area.removeAttribute('data-linked');tracks.select(selectedPlaylist,false);clearTimeout(pollTimer);clearInterval(tickTimer);stopSpotifyBrowser();media.clear();controls.hidden=true;connect.hidden=false;say('Spotify bağlantısı kaldırıldı.');});
   lists.onchange=()=>{
     const content=spotifyContent('https://open.spotify.com/playlist/'+lists.value);
     selectedPlaylist=content?.id||'';
@@ -141,6 +150,6 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,o
     if(status.loginRequired){connect.hidden=true;say('Spotify hesabını bağlamak için önce MONO’ya giriş yap.');return;}
     if(!status.configured){connect.hidden=true;say('Spotify bağlantısı için sunucu ayarları henüz yapılmadı.');return;}
     if(!status.connected){say(oauthResult==='denied'?'Spotify izni verilmedi. İstersen yeniden bağlan.':oauthResult==='failed'?'Spotify bağlantısı tamamlanamadı. Sunucu ayarlarını kontrol edip yeniden bağlan.':'Hesabını bağla; çalma listelerin burada görünsün.');return;}
-    connected=true;controls.hidden=false;connect.hidden=true;say('Spotify hesabın bağlı.');await loadLists(true);await loadDevices();await loadState();watch();tickTimer=setInterval(()=>{if(!document.hidden)media.tick();},1000);
+    connected=true;area.setAttribute('data-linked','true');controls.hidden=false;connect.hidden=true;say('Spotify hesabın bağlı.');await loadLists(true);showPlaylist(selectedPlaylist);await loadDevices();await loadState();watch();tickTimer=setInterval(()=>{if(!document.hidden)media.tick();},1000);
   });
 }

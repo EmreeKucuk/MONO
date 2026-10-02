@@ -11,6 +11,12 @@ export function renderSpotify(widget) {
       ${renderMedia()}
       <section class="spotify-playlist" data-spotify-playlist ${playlist?'':'hidden'} aria-label="Seçili çalma listesindeki şarkılar">
         <h3 data-spotify-playlist-name>Seçili çalma listesi</h3>
+        <div class="spotify-native-list" data-spotify-tracks hidden>
+          <img class="spotify-list-cover" alt="Çalma listesi kapağı" hidden>
+          <p role="status"></p><ol aria-label="Çalma listesindeki şarkılar"></ol>
+          <button type="button" data-tracks-more hidden>Daha fazla şarkı</button>
+          <button type="button" data-tracks-retry hidden>Yeniden dene</button>
+        </div>
         ${playlist?`<iframe class="spotify-player spotify-playlist-player" title="Spotify çalma listesindeki şarkılar" src="${escape(playlist.embed)}" width="100%" height="360" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`:''}
         <a data-spotify-playlist-link ${playlist?`href="${escape(playlist.url)}"`:''} target="_blank" rel="noopener noreferrer">Listeyi Spotify’da aç ↗</a>
         <button type="button" data-spotify-remove>Listeyi kaldır</button>

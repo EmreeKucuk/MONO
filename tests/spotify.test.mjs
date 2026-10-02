@@ -31,6 +31,6 @@ test('local and Vercel CSP permit only Spotify frames and offline cache includes
   const remote=config.headers[0].headers.find(header=>header.key==='Content-Security-Policy').value;
   for(const csp of [local,remote])assert.match(csp,/frame-src https:\/\/open\.spotify\.com https:\/\/sdk\.scdn\.co;/);
   const sw=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
-  for(const asset of ['spotify-url.js','spotify-widget.js','styles/spotify.css'])assert.ok(sw.includes(asset));
+  for(const asset of ['spotify-url.js','spotify-widget.js','spotify-tracks.js','styles/spotify.css'])assert.ok(sw.includes(asset));
 });
 

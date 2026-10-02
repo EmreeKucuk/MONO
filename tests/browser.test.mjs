@@ -258,11 +258,17 @@ test('connected Spotify account lists playlists, sends playback controls and act
   const context=await browser.newContext({viewport:{width:1440,height:900},serviceWorkers:'block'}),commands=[];
   const playlist='37i9dQZF1DXcBWIGoYBM5M';
   let shuffle=false,failShuffle=false;
+  let failTracks=false;
   await context.route('https://open.spotify.com/embed/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><p>Playlist tracks</p>'}));
   await context.route('**/api/spotify/**',route=>{
     const path=new URL(route.request().url()).pathname;
     if(path.endsWith('/status'))return route.fulfill({json:{configured:true,connected:true,loginRequired:false}});
     if(path.endsWith('/playlists'))return route.fulfill({json:{items:[{id:playlist,name:'My focus playlist <img onerror=evil>',owner:'Me'},{id:'7gwrt2C38WT1Z7sd409355',name:'Second playlist',owner:'Me'}],nextOffset:null}});
+    if(path.endsWith('/playlist')){
+      if(failTracks)return route.fulfill({status:403,json:{error:'Kendi listeni seç.'}});
+      const offset=Number(new URL(route.request().url()).searchParams.get('offset'));
+      return route.fulfill({json:{name:'My focus playlist <img onerror=evil>',cover:'javascript:evil',items:offset?[{position:50,name:'Page two',artist:'Artist',duration:120000,playable:true}]:[{position:0,name:'Unavailable',artist:'',duration:0,playable:false},{position:1,name:'Heat Waves <img onerror=evil>',artist:'Glass Animals',duration:180000,playable:true}],nextOffset:offset?null:50}});
+    }
     if(path.endsWith('/devices'))return route.fulfill({json:{devices:[{id:'phone',name:'My phone',active:true}]}});
     if(path.endsWith('/token'))return route.fulfill({json:{access_token:'memory-only-token'}});
     if(path.endsWith('/state'))return route.fulfill({json:{shuffle,playing:commands.at(-1)?.action==='play'||commands.at(-1)?.action==='resume',position:30000,duration:180000,track:{name:'Heat Waves',artist:'Glass Animals',album:'Dreamland',cover:'https://i.scdn.co/image/test-cover'}}});
@@ -281,15 +287,25 @@ test('connected Spotify account lists playlists, sends playback controls and act
   const account=page.locator('.spotify-account');await account.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
   await account.locator('.spotify-settings summary').click();
   await account.locator('[data-spotify-lists]').selectOption(playlist);
-  const frame=account.locator('.spotify-playlist-player');await frame.waitFor({state:'visible'});
+  const frame=account.locator('.spotify-playlist-player');await frame.waitFor({state:'attached'});
+  assert.equal(await frame.isVisible(),false);
+  const rows=account.locator('.spotify-track-row');await rows.nth(1).waitFor({state:'visible'});
+  assert.equal(await rows.first().isDisabled(),true);
+  await rows.nth(1).click();await page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);
+  assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,position:1,deviceId:'phone'});
+  assert.equal(await rows.first().isDisabled(),true);assert.equal(await account.locator('[onerror]').count(),0);
+  await account.locator('[data-tracks-more]').click();await rows.nth(2).waitFor({state:'visible'});
+  await rows.nth(2).click();await page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);assert.equal(commands.at(-1).position,50);
   assert.equal(await frame.getAttribute('src'),'https://open.spotify.com/embed/playlist/'+playlist+'?theme=0');
   assert.match(await account.locator('[data-spotify-playlist-name]').textContent(),/My focus playlist <img onerror=evil>/);
   await frame.evaluate(element=>window.selectedPlaylistFrame=element);
-  await account.locator('[data-spotify-lists]').selectOption('7gwrt2C38WT1Z7sd409355');
+  failTracks=true;await account.locator('[data-spotify-lists]').selectOption('7gwrt2C38WT1Z7sd409355');
+  await account.locator('[data-tracks-retry]').waitFor({state:'visible'});
+  failTracks=false;await account.locator('[data-tracks-retry]').click();await rows.nth(1).waitFor({state:'visible'});
   assert.equal(await frame.getAttribute('src'),'https://open.spotify.com/embed/playlist/7gwrt2C38WT1Z7sd409355?theme=0');
   assert.ok(await frame.evaluate(element=>element===window.selectedPlaylistFrame));
   await account.locator('[data-spotify-lists]').selectOption('');assert.equal(await frame.count(),0);
-  await account.locator('[data-spotify-lists]').selectOption(playlist);await frame.waitFor({state:'visible'});
+  await account.locator('[data-spotify-lists]').selectOption(playlist);await frame.waitFor({state:'attached'});await rows.nth(1).waitFor({state:'visible'});
   const shuffleButton=account.locator('[data-spotify-shuffle]');
   const waitForCommand=()=>page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);
   await shuffleButton.click();await waitForCommand();assert.equal(await shuffleButton.getAttribute('aria-pressed'),'true');
@@ -301,10 +317,14 @@ test('connected Spotify account lists playlists, sends playback controls and act
   await account.locator('[data-spotify-command="pause"]').click();assert.equal(commands.at(-1).action,'pause');
   await account.locator('[data-spotify-browser]').click();await page.waitForFunction(()=>document.querySelector('[data-spotify-devices]').value==='browser-device');
   await account.locator('[data-spotify-toggle]').click();assert.equal(commands.at(-1).deviceId,'browser-device');
+  await waitForCommand();await rows.nth(1).focus();await page.keyboard.press('Enter');await waitForCommand();
+  assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,position:1,deviceId:'browser-device'});
+  assert.equal(new URL(page.url()).origin,new URL(base).origin);
+  assert.equal(await account.locator('.spotify-list-cover').getAttribute('src'),null);
   assert.equal(await account.locator('[data-spotify-title]').textContent(),'Heat Waves');
   assert.equal(await account.locator('[data-spotify-album]').textContent(),'Dreamland');
   assert.equal(await account.locator('[data-spotify-cover]').getAttribute('src'),'https://i.scdn.co/image/test-cover');
-  await account.locator('[data-spotify-progress]').evaluate(element=>element.value='45000');await account.locator('[data-spotify-progress]').dispatchEvent('change');
+  await account.locator('[data-spotify-progress]').evaluate(element=>{element.value='45000';element.dispatchEvent(new Event('change',{bubbles:true}));});
   await page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);
   assert.equal(commands.at(-1).action,'seek');assert.equal(commands.at(-1).positionMs,45000);
   assert.equal(await account.locator('[onerror]').count(),0);
