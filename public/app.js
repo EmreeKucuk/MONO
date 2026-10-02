@@ -1,4 +1,8 @@
+import {bindDashboard,installDashboard,syncDashboard,dashboardNotification} from './dashboard-features.js';
+import {bindWeather} from './weather.js';
+import {flushEncryption,hasPendingEncryption} from './note-vault.js';
 import { patchGrid } from './grid-view.js';
+import {ensureDesks,switchDesk,addDesk} from './desks.js';
 import { installWidgetShortcuts,refreshWidgetShortcuts } from './widget-shortcuts.js';
 import { renderCalendar } from './calendar-view.js';
 import { renderShell } from './shell-view.js';
@@ -15,7 +19,7 @@ import { sanitizeWorkspace } from './state-schema.js';
 import { $,uid,escape,icon,dateKey } from './ui-utils.js';
 import { captureFocus,restoreFocus } from './focus-state.js';
 const today=dateKey(new Date()), types={
-  tasks:['Yapılacaklar','Bir sonraki adımın'],note:['Not defteri','Sayfalar, başlıklar ve hızlı komutlar'],calendar:['Takvim','Günlerini planla'],focus:['Odak sayacı','Tek bir şeye odaklan'],...extraTypes
+  tasks:['Yapılacaklar','Bir sonraki adımın'],note:['Notlar','Sayfalar, başlıklar ve hızlı komutlar'],calendar:['Takvim','Günlerini planla'],focus:['Odak sayacı','Tek bir şeye odaklan'],...extraTypes
 };
 let user=null,view='board',toolbox=false,register=false,saveTimer,saveQueue=Promise.resolve(),saving=false,dirty=false,conflicted=false,revision=0,selectedDate=today,month=new Date(new Date().getFullYear(),new Date().getMonth(),1),installEvent=null;
 import { initial } from './workspace-model.js';
@@ -60,6 +64,7 @@ function status(message){
   if(announcement)announcement.textContent=message;
 }
 function changed(){
+  syncDashboard();
   dirty=true;
   revision++;
   if(!user){
@@ -77,6 +82,7 @@ function changed(){
 async function persist(){
   if(!user||conflicted)return;
   clearTimeout(saveTimer);
+  await flushEncryption();
   const snapshot=structuredClone(state),rev=revision;
   saving=true;
   const job=saveQueue.catch(()=>{
@@ -126,12 +132,15 @@ function exportWorkspace(){
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function shell(){
+  ensureDesks(state);
   normalizeGrid(state);
   $('#app').innerHTML=renderShell({
     state,user,view,toolbox,dirty,conflicted,offline,types,sidebarHidden
   });
   renderDesk();
   bindShell();
+  bindDashboard();
+  bindWeather(askName);
   updateClock();
   if(installEvent)$('#install').hidden=false;
 }
@@ -164,7 +173,6 @@ function renderWidget(id){
   const count=state.widgets.filter(item=>item.type==='tasks').flatMap(item=>item.tasks).filter(task=>!task.done).length;
   const badge=document.querySelector('[data-view="tasks"] span');
   if(badge)badge.textContent=count;
-  if(view==='tasks')document.querySelector('.view-label span').textContent=count+' açık görev';
 }
 function renderDesk(){
   normalizeGrid(state);
@@ -185,7 +193,6 @@ function renderDesk(){
   const count=state.widgets.filter(w=>w.type==='tasks').flatMap(w=>w.tasks).filter(t=>!t.done).length;
   const badge=document.querySelector('[data-view="tasks"] span');
   if(badge)badge.textContent=count;
-  if(view==='tasks')document.querySelector('.view-label span').textContent=count+' açık görev';
   refreshWidgetShortcuts();
 }
 function timeString(sec){
@@ -210,6 +217,18 @@ function addWidget(type,slot){
   return w;
 }
 function bindShell(){
+  const resetDesk=()=>{disposeGrid();view='board';toolbox=false;selectedDate=today;month=new Date(new Date().getFullYear(),new Date().getMonth(),1);changed();shell();$('#desk-select').focus();};
+  $('#desk-select').onchange=async event=>{const id=event.target.value;await flushEncryption();state.widgets.filter(w=>w.type==='note').forEach(w=>forgetNotebook(w.id));if(switchDesk(state,id))resetDesk();};
+  $('#desk-add').onclick=async()=>{
+    const name=await askName({title:'Yeni masa',value:'',maxLength:80});
+    if(!name)return;
+    await flushEncryption();state.widgets.filter(w=>w.type==='note').forEach(w=>forgetNotebook(w.id));addDesk(state,name);resetDesk();
+  };
+  $('#desk-rename').onclick=async()=>{
+    const desk=state.desks.find(desk=>desk.id===state.activeDeskId);
+    const name=await askName({title:'Masa adını değiştir',value:desk.name,maxLength:80});
+    if(name){desk.name=name;changed();shell();$('#desk-select').focus();}
+  };
   $('#sidebar-toggle').onclick=()=>{
     sidebarHidden=!sidebarHidden;
     $('.shell').classList.toggle('sidebar-collapsed',sidebarHidden);
@@ -504,12 +523,12 @@ setInterval(()=>{
       changed();
       const startButton=document.querySelector('[data-id='+JSON.stringify(w.id)+'] [data-start]');
       if(startButton)startButton.textContent='Yeniden başlat';
-      notify('Odak süren tamamlandı. Kısa bir mola ver.');
+      dashboardNotification('Odak süren tamamlandı','Kısa bir mola ver.','focus');
     }
   }
 },500);
 window.addEventListener('beforeunload',e=>{
-  if(user&&(dirty||saving)){
+  if(hasPendingEncryption()||user&&(dirty||saving)){
     e.preventDefault();
     e.returnValue='';
   }
@@ -525,6 +544,7 @@ window.addEventListener('beforeinstallprompt',e=>{
 });
 const openWidgetSearch=installWidgetSearch(types,addWidget,icon);
 installWidgetShortcuts(id=>state.widgets.find(widget=>widget.id===id)?.type);
+installDashboard({state:()=>state,changed,notify,askName,calendar:()=>state.widgets.filter(w=>w.type==='calendar').forEach(w=>renderWidget(w.id))});
 shell();
 try{
   const session=await current();

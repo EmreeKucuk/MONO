@@ -1,7 +1,7 @@
 // A persisted workspace is untrusted input, even when it belongs to this account.
-export const STATE_VERSION=1;
+export const STATE_VERSION=3;
 import { spotifyContent } from './spotify-url.js';
-const types=new Set(['tasks','note','calendar','focus','habits','links','journal','goal','dates','spotify']);
+const types=new Set(['tasks','note','calendar','focus','habits','links','journal','goal','dates','spotify','clipboard']);
 const blockTypes=new Set(['text','title','subtitle','bullet','check','number','quote']);
 const str=(value,max=10000)=>String(typeof value==='string'?value:'').slice(0,max);
 const list=(value,max=500)=>Array.isArray(value)?value.slice(0,max):[];
@@ -25,13 +25,19 @@ export function safeHttpUrl(value){
 const block=value=>({
   id:id(value?.id),type:blockTypes.has(value?.type)?value.type:'text',text:str(value?.text,100000),indent:integer(value?.indent,0,0,3),done:value?.done===true
 });
+export const sanitizeNoteBlocks=value=>list(value,2000).map(block);
+function encrypted(value){
+  if(value===undefined)return null;
+  if(!value||value.version!==1||value.iterations!==600000||typeof value.salt!=='string'||typeof value.iv!=='string'||typeof value.ciphertext!=='string'||!(/^[A-Za-z0-9+/]{22}==$/.test(value.salt))||!(/^[A-Za-z0-9+/]{16}$/.test(value.iv))||value.ciphertext.length<24||value.ciphertext.length>1500000||!(/^[A-Za-z0-9+/]+={0,2}$/.test(value.ciphertext)))throw Error('Şifreli sayfa verisi geçersiz.');
+  return {version:1,iterations:600000,salt:value.salt,iv:value.iv,ciphertext:value.ciphertext};
+}
 const task=value=>({
   id:id(value?.id),text:str(value?.text,300),done:value?.done===true,groupId:value?.groupId==null?null:id(value.groupId)
 });
 function widget(value){
   if(!value||!types.has(value.type))return null;
   const w={
-    id:id(value.id),type:value.type,title:str(value.title,60)||value.type,x:number(value.x),y:number(value.y),width:number(value.width,320,100,3000)
+    id:id(value.id),type:value.type,title:value.type==='note'&&value.title==='Aklımdakiler'?'Notlar':str(value.title,60)||value.type,x:number(value.x),y:number(value.y),width:number(value.width,320,100,3000)
   };
   if(value.grid&&typeof value.grid==='object')w.grid={
     slot:integer(value.grid.slot,0,0,10000),cols:integer(value.grid.cols,1,1,3),rows:integer(value.grid.rows,1,1,100)
@@ -45,9 +51,12 @@ function widget(value){
   const groupIds=new Set(w.groups.map(g=>g.id));
   for(const t of w.tasks)if(!groupIds.has(t.groupId))t.groupId=null;
   w.generalCollapsed=value.generalCollapsed===true;
-  w.pages=list(value.pages,100).map(p=>({
-    id:id(p?.id),name:str(p?.name,80)||'Sayfa',blocks:list(p?.blocks,2000).map(block)
-  }));
+  w.pages=list(value.pages,100).map(p=>{const secret=encrypted(p?.encrypted);return {id:id(p?.id),name:str(p?.name,80)||'Sayfa',blocks:secret?[]:sanitizeNoteBlocks(p?.blocks),...(secret?{encrypted:secret}:{})};});
+  if(w.pages.some(page=>page.encrypted)){
+    if(w.id!==value.id||w.pages.some((p,i)=>p.encrypted&&p.id!==value.pages[i]?.id))throw Error('Şifreli sayfa kimliği geçersiz.');
+    if(new Set(w.pages.map(p=>p.id)).size!==w.pages.length)throw Error('Şifreli sayfa kimlikleri benzersiz olmalı.');
+    w.text='';
+  }
   w.pageId=w.pages.some(p=>p.id===value.pageId)?value.pageId:w.pages[0]?.id;
   w.habits=list(value.habits,100).map(h=>({
     id:id(h?.id),name:str(h?.name,80),days:list(h?.days,2000).map(date).filter(Boolean)
@@ -70,19 +79,42 @@ function widget(value){
   w.endAt=number(value.endAt,0,0,1e15)||null;
   return w;
 }
-export function sanitizeWorkspace(input){
+function sanitizeLayout(input){
   if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Çalışma alanı verisi geçersiz.');
   if(!Array.isArray(input.widgets)||!Array.isArray(input.events))throw new Error('Çalışma alanının widget ve etkinlik listeleri geçersiz.');
-  const version=input.schemaVersion??0;
-  if(!Number.isInteger(version)||version>STATE_VERSION||version<0)throw new Error('Desteklenmeyen çalışma alanı sürümü.');
   const widgets=list(input.widgets,200).map(widget).filter(Boolean),ids=new Set();
   for(const w of widgets){
-    if(ids.has(w.id))w.id=crypto.randomUUID();
+    if(ids.has(w.id)){if(w.pages.some(p=>p.encrypted))throw Error('Şifreli widget kimliği benzersiz olmalı.');w.id=crypto.randomUUID();}
     ids.add(w.id);
   }
   return {
-    schemaVersion:STATE_VERSION,gridColumns:input.gridColumns===2?2:3,autoArrange:input.autoArrange!==false,widgets,events:list(input.events,2000).map(e=>({
-      id:id(e?.id),date:date(e?.date),text:str(e?.text,180)
+    gridColumns:input.gridColumns===2?2:3,autoArrange:input.autoArrange!==false,widgets,events:list(input.events,2000).map(e=>({
+      id:id(e?.id),date:date(e?.date),text:str(e?.text,180),...(typeof e?.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(e.time)?{time:e.time}:{})
     })).filter(e=>e.date)
   };
+}
+export function sanitizeWorkspace(input){
+  const layout=sanitizeLayout(input),version=input.schemaVersion??0;
+  if(!Number.isInteger(version)||version>STATE_VERSION||version<0)throw new Error('Desteklenmeyen çalışma alanı sürümü.');
+  const global={reminders:list(input.reminders,2000).map(item=>({id:id(item?.id),text:str(item?.text,300),at:number(item?.at,0,0,1e15),done:item?.done===true,deskId:str(item?.deskId,80)})).filter(item=>item.at>0),zoneProfiles:list(input.zoneProfiles,100).map(profile=>({id:id(profile?.id),name:str(profile?.name,60)||'Zone',minutes:integer(profile?.minutes,25,0,1440),allowed:list(profile?.allowed,3).filter(value=>['reminder','focus','zone'].includes(value))})),activeZone:input.activeZone&&typeof input.activeZone==='object'?{profileId:str(input.activeZone.profileId,80),endAt:number(input.activeZone.endAt,0,0,1e15),startedAt:number(input.activeZone.startedAt,0,0,1e15),allowed:list(input.activeZone.allowed,3).filter(value=>['reminder','focus','zone'].includes(value))}:null};
+  if(input.desks===undefined)return {schemaVersion:STATE_VERSION,...layout,...global,activeDeskId:'default',desks:[{id:'default',name:'Kişisel alan'}]};
+  if(!Array.isArray(input.desks)||!input.desks.length)throw new Error('Masa listesi geçersiz.');
+  const used=new Set();
+  const desks=input.desks.map(entry=>{
+    const desk={id:id(entry?.id),name:str(entry?.name,80).trim()||'Yeni masa'};
+    if(used.has(desk.id))throw new Error('Masa kimlikleri benzersiz olmalı.');
+    used.add(desk.id);return {...desk,...(entry?.workspace?{workspace:sanitizeLayout(entry.workspace)}:{})};
+  });
+  if(!used.has(input.activeDeskId))throw new Error('Etkin masa bulunamadı.');
+  const activeDeskId=input.activeDeskId;
+  for(const desk of desks){
+    if(desk.id===activeDeskId)delete desk.workspace;
+    else if(!desk.workspace)throw new Error('Masanın çalışma alanı eksik.');
+  }
+  const widgetIds=new Set(layout.widgets.map(widget=>widget.id));
+  for(const desk of desks)for(const widget of desk.workspace?.widgets||[]){
+    if(widgetIds.has(widget.id)){if(widget.pages.some(p=>p.encrypted))throw Error('Şifreli widget kimliği benzersiz olmalı.');widget.id=crypto.randomUUID();}
+    widgetIds.add(widget.id);
+  }
+  return {schemaVersion:STATE_VERSION,...layout,...global,activeDeskId,desks};
 }

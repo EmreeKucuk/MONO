@@ -14,7 +14,7 @@ export function initial(demo=true){
     },{
       id:uid(),type:'calendar',title:'Takvim',x:384,y:0,width:320
     },{
-      id:uid(),type:'note',title:'Aklımdakiler',x:innerWidth>=1350?728:0,y:innerWidth>=1350?0:470,width:320,text:demo?'Daha az şey, daha fazla odak.\n\nBu hafta gerçekten bitirmek istediğim üç şey ne?\n\nBir düşünceyi kaybetmeden buraya bırak.':''
+      id:uid(),type:'note',title:'Notlar',x:innerWidth>=1350?728:0,y:innerWidth>=1350?0:470,width:320,text:demo?'Daha az şey, daha fazla odak.\n\nBu hafta gerçekten bitirmek istediğim üç şey ne?\n\nBir düşünceyi kaybetmeden buraya bırak.':''
     },{
       id:uid(),type:'focus',title:'Odak zamanı',x:innerWidth>=1350?728:384,y:innerWidth>=1350?440:520,width:320,remaining:1500,running:false,endAt:null
     },{

@@ -1,6 +1,12 @@
 /* Navigation preferences never change the saved workspace layout. */
 .sidebar[hidden] { display:none; }
 .sidebar { overflow-y:auto; z-index:35; }
+.desk-picker { margin:22px 0; min-width:0; }
+.desk-picker select { width:100%; min-width:0; border:1px solid var(--line); background:var(--panel); color:inherit; padding:11px 12px; border-radius:13px; font:inherit; font-size:13px; }
+.desk-actions { display:flex; gap:6px; margin-top:8px; }
+.desk-actions button { padding:6px 10px; font-size:11px; border-radius:10px; }
+.desk-actions #desk-add { flex:1; }
+.desk-picker select:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .shell.sidebar-collapsed { grid-template-columns:minmax(0,1fr); }
 .sidebar-collapsed .main { grid-column:1; }
 .sidebar-settings { margin:26px 0; display:grid; gap:16px; }

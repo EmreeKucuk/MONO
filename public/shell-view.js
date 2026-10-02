@@ -6,7 +6,11 @@ export function renderShell({state,user,view,toolbox,dirty,conflicted,offline,ty
   return `<div class="shell ${sidebarHidden?'sidebar-collapsed':''}">
     <aside id="workspace-sidebar" class="sidebar" aria-label="Çalışma alanı paneli" ${sidebarHidden?'hidden':''}>
       <div class="brand"><img src="/favicon.svg" alt="">MONO</div>
-      <div class="workspace-name">Kişisel alan</div>
+      <div class="desk-picker">
+        <label class="sr-only" for="desk-select">Masa seç</label>
+        <select id="desk-select" aria-label="Masa seç">${state.desks.map(desk=>`<option value="${escape(desk.id)}" ${desk.id===state.activeDeskId?'selected':''}>${escape(desk.name)}</option>`).join('')}</select>
+        <div class="desk-actions"><button id="desk-add" aria-label="Yeni masa ekle">+ Yeni masa</button><button id="desk-rename" aria-label="Masa adını değiştir">✎</button></div>
+      </div>
       <span class="eyebrow">ÇALIŞMA ALANI</span>
       <nav class="nav" aria-label="Ana menü">
         ${[['board','Masam'],['tasks','Tüm görevler'],['calendar','Takvim']].map(([id,title])=>`<button data-view="${id}" class="${view===id?'active':''}" ${view===id?'aria-current="page"':''}>${icon(id)}${title}${id==='tasks'?`<span style="margin-left:auto;font-size:12px">${count}</span>`:''}</button>`).join('')}
@@ -37,8 +41,8 @@ export function renderShell({state,user,view,toolbox,dirty,conflicted,offline,ty
           <button id="sidebar-toggle" aria-controls="workspace-sidebar" aria-expanded="${!sidebarHidden}" aria-label="${sidebarHidden?'Sol paneli göster':'Sol paneli gizle'}" title="${sidebarHidden?'Sol paneli göster':'Sol paneli gizle'}">☰</button>
           <div class="breadcrumbs">Çalışma alanı <span>/</span> <strong>${viewName}</strong></div>
         </div>
-        <div class="topbar-date"><span data-live-date></span><time data-live-clock aria-label="Saat"></time></div>
-        <div class="toolbar">
+        <div class="topbar-date"><button id="weather" type="button" aria-label="Hava durumu şehrini seç">Hava durumu</button><span data-live-date></span><time data-live-clock aria-label="Saat"></time></div>
+        <div class="toolbar"><button id="quick-capture-open" title="Ctrl+Shift+Space">Hızlı yakala</button><button id="reminders-open">Hatırlatmalar</button><button id="zone-open">Zone</button>
           <button id="save-status" class="icon save-status" title="Kaydı yeniden dene">${user?(conflicted?'Kayıt çakışması':dirty?(offline?'Çevrimdışı · Bu cihazda saklandı':'Kaydediliyor…'):'✓ Kaydedildi'):'Geçici önizleme'}</button>
           <button id="account" class="icon" style="font-size:14px">${user?'Çıkış yap':'Giriş yap'}</button>
           <button id="widget-search-open" aria-label="Widget ara" title="Shift + < + Z">⌕ <span>Widget ara</span></button>

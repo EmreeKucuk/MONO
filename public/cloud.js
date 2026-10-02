@@ -10,6 +10,7 @@ const tabId = sessionStorage.getItem('mono-editor-id') || crypto.randomUUID();
 sessionStorage.setItem('mono-editor-id', tabId);
 localStorage.removeItem('mono-session');
 const draftKey = () => user.id + ':' + tabId;
+const hasEncryptedPages = state => [state,...(state?.desks||[]).map(d=>d.workspace)].some(layout=>layout?.widgets?.some(w=>w.pages?.some(p=>p.encrypted)));
 async function request(path, method = 'GET', data) {
   let response;
   try {
@@ -121,7 +122,7 @@ export async function loadWorkspace() {
     throw error;
   }
   revision = remote.revision;
-  await writeSnapshot(user.id, remote);
+  await writeSnapshot(user.id, draft&&hasEncryptedPages(draft.state)?{state:sanitizeWorkspace(draft.state),revision:draft.revision}:remote);
   if (draft) {
     if (draft.revision !== revision) throw Object.assign( Error('Bu çalışma alanı başka bir sekmede değişti. Yerel kopyan korunuyor.'), {
       code: 'CONFLICT', draft, remote
@@ -135,12 +136,14 @@ export async function loadWorkspace() {
 export const hasPendingDraft = () => pending;
 export function stageWorkspace(state) {
   if (!user) return Promise.resolve();
-  const snapshot = sanitizeWorkspace(state), key = draftKey();
+  const snapshot = sanitizeWorkspace(state), key = draftKey(), account=user.id;
   pending = true;
   stageQueue = stageQueue.catch(() => {
-  }).then(() => writeDraft(key, {
-    state: snapshot, revision, updatedAt: Date.now(), editId: crypto.randomUUID()
-  }));
+  }).then(async () => {
+    await writeDraft(key, {state:snapshot,revision,updatedAt:Date.now(),editId:crypto.randomUUID()});
+    // Do not retain the previous plaintext snapshot after protecting a page offline.
+    if(hasEncryptedPages(snapshot))await writeSnapshot(account,{state:snapshot,revision});
+  });
   return stageQueue;
 }
 export async function saveWorkspace(state) {

@@ -1,5 +1,6 @@
 import { sanitizeWorkspace } from '../public/state-schema.js';
 import {handleSpotify,clearSpotify} from './spotify.mjs';
+import {getWeather} from './weather.mjs';
 
 const cookieName='mono_session';
 const config=()=>{
@@ -38,6 +39,7 @@ export async function handleApi(req,res){
   if(!path.startsWith('/api/'))return false;
   const {url,key}=config();
   try{
+    if(path==='/api/weather'&&req.method==='GET'){json(res,200,await getWeather(new URL(req.url,'http://localhost').searchParams.get('city')));return true;}
     if(req.method!=='GET'){
       const origin=req.headers.origin,host=req.headers.host;
       if((origin&&new URL(origin).host!==host)||req.headers['sec-fetch-site']==='cross-site')throw Object.assign(Error('İstek kaynağı geçersiz.'),{status:403});

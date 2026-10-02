@@ -6,3 +6,5 @@
 @import url('./styles/overrides.css');
 @import url('./styles/workspace-shell.css');
 @import url('./styles/spotify.css');
+
+@import url('./styles/dashboard.css');

@@ -1,3 +1,4 @@
+import {renderClipboard,bindClipboard} from './clipboard-widget.js';
 import { safeHttpUrl } from './state-schema.js';
 import { renderSpotify,bindSpotify } from './spotify-widget.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({
@@ -13,10 +14,12 @@ const dates=()=>Array.from({
   return d;
 });
 export const extraTypes={
+  clipboard:['Clipboard','Cihazına ait kopyalama geçmişi'],
   spotify:['Spotify','Şarkı, albüm ve çalma listesi oynatıcısı'],
   habits:['Alışkanlıklar','Küçük adımlar, düzenli ilerleme'],links:['Hızlı bağlantılar','Sık açtığın yerlere tek tık'],journal:['Günlük kayıt','Her güne ayrı bir sayfa'],goal:['Hedef sayacı','Sayılabilir bir hedefin ilerlemesi'],dates:['Önemli tarihler','Yaklaşan günlere geri sayım']
 };
 export function renderExtra(w){
+  if(w.type==='clipboard')return renderClipboard();
   if(w.type==='spotify')return renderSpotify(w);
   if(w.type==='habits'){
     w.habits??=[];
@@ -53,6 +56,7 @@ export function bindExtra(w,root,{
     changed();
     render();
   };
+  if(w.type==='clipboard')return bindClipboard(root);
   if(w.type==='spotify')return bindSpotify(w,root,{changed,render,beforeConnect});
   root.querySelector('.habit-form')?.addEventListener('submit',e=>{
     e.preventDefault();

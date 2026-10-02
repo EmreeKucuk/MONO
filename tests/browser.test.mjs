@@ -15,6 +15,68 @@ const freePort=()=>new Promise(resolve=>{const server=createServer();server.list
 before(async()=>{const port=await freePort();base=`http://127.0.0.1:${port}`;processHandle=spawn(process.execPath,['server.mjs'],{cwd:project,env:{...process.env,PORT:String(port)}});for(let attempt=0;attempt<60;attempt++){try{const response=await fetch(base);if(response.ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}browser=await chromium.launch({channel:process.env.MONO_BROWSER_CHANNEL||'msedge',headless:true});});
 after(async()=>{await browser?.close();processHandle?.kill();});
 
+test('dashboard capture, reminders, Zones, weather and clipboard reflow without runtime errors',async()=>{
+  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}}),page=await context.newPage(),errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  await context.route('**/api/weather?**',route=>route.fulfill({json:{city:'Ankara',temperature:18,summary:'Açık'}}));
+  await page.goto(base);await page.locator('#weather').click();await page.locator('.name-dialog input').fill('Ankara');await page.locator('.name-dialog [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#weather').textContent.includes('18°'));
+  await page.keyboard.press('Control+Shift+Space');await page.locator('[name=capture]').fill('yarın 14:30 proje toplantısı');await page.locator('[data-parse]').click();assert.equal(await page.locator('[name=text]').inputValue(),'proje toplantısı');await page.locator('.capture-form [type=submit]').click();
+  await page.locator('#quick-capture-open').click();await page.locator('[name=capture]').fill('20 dakika sonra su iç hatırlat');await page.locator('[data-parse]').click();assert.equal(await page.locator('[name=kind]').inputValue(),'reminder');await page.locator('.capture-form [type=submit]').click();await page.locator('#reminders-open').click();assert.match(await page.locator('.reminder-list').textContent(),/su iç/);await page.keyboard.press('Escape');
+  await page.locator('#zone-open').click();await page.locator('.dashboard-dialog [name=minutes]').fill('0');await page.locator('.dashboard-dialog form .primary').click();assert.match(await page.locator('#zone-open').textContent(),/Working Zone.*Süresiz/);await page.locator('#zone-open').click();await page.locator('[data-stop]').click();assert.equal(await page.locator('#zone-open').textContent(),'Zone');
+  await page.locator('#tool-toggle').click();await page.locator('[data-add=clipboard]').click();assert.ok(await page.locator('[data-clipboard-watch]').isDisabled());assert.match(await page.locator('.clipboard-list').textContent(),/Henüz/);
+  await page.setViewportSize({width:320,height:700});if(await page.locator('#workspace-sidebar').isVisible())await page.locator('#sidebar-toggle').click();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.ok(await page.locator('[data-live-clock]').isVisible());await page.locator('#zone-open').click();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.keyboard.press('Escape');await page.locator('.dashboard-dialog').waitFor({state:'detached'});assert.equal(await page.locator('.dashboard-dialog').count(),0);assert.deepEqual(errors,[]);await context.close();
+});
+
+test('password-protected notes save no plaintext, reopen, edit and keep commands/selection after relocking',async()=>{
+  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}});let remote={widgets:[{id:'note',type:'note',title:'Aklımdakiler',text:'Confidential note',grid:{slot:0,cols:1,rows:1}}],events:[],gridColumns:2},revision=1;
+  await context.route('**/api/**',route=>{const path=new URL(route.request().url()).pathname;if(path==='/api/session')return route.fulfill({json:{configured:true,user:{id:'vault-user',email:'vault@example.com'}}});if(path==='/api/workspace'){if(route.request().method()==='GET')return route.fulfill({json:{state:remote,revision}});remote=route.request().postDataJSON().state;return route.fulfill({json:{revision:++revision}});}return route.fulfill({json:{}});});
+  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('vault@example.com'));assert.equal(await page.locator('.widget-title').textContent(),'Notlar');
+  await page.locator('[data-page-protect]').click();await page.locator('.name-dialog [name=password]').fill('a-strong-password');await page.locator('[name=confirm]').fill('a-strong-password');await page.locator('.name-dialog [type=submit]').click();await page.locator('.note-locked').waitFor();await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));assert.ok(!JSON.stringify(remote).includes('Confidential note'));assert.deepEqual(remote.widgets[0].pages[0].blocks,[]);
+  await page.reload();await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('vault@example.com'));assert.equal(await page.locator('.note-document').count(),0);await page.keyboard.press('Alt+1');assert.ok(await page.locator('[data-page-unlock]').evaluate(e=>e===document.activeElement));await page.locator('[data-page-unlock]').click();await page.locator('.name-dialog [name=password]').fill('wrong-password');await page.locator('.name-dialog [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Şifre yanlış'));assert.equal(await page.locator('.note-document').count(),0);
+  await page.locator('[data-page-unlock]').click();await page.locator('.name-dialog [name=password]').fill('a-strong-password');await page.locator('.name-dialog [type=submit]').click();await page.locator('.note-document').waitFor();assert.match(await page.locator('.note-document').textContent(),/Confidential note/);await page.locator('.note-document').click();await page.keyboard.press('Control+a');await page.keyboard.type('/title ');await page.keyboard.type('Changed secret');await page.keyboard.press('Enter');await page.keyboard.type('Second block');await page.keyboard.press('Control+a');assert.match(await page.evaluate(()=>getSelection().toString()),/Changed secret.*Second block/s);await page.locator('[data-page-lock]').click();await page.locator('.note-locked').waitFor();await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));assert.ok(!JSON.stringify(remote).includes('Changed secret'));
+  await page.reload();await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('vault@example.com'));await page.locator('[data-page-unlock]').click();await page.locator('.name-dialog [name=password]').fill('a-strong-password');await page.locator('.name-dialog [type=submit]').click();await page.locator('.note-document').waitFor();assert.equal(await page.locator('.block-title .block-input').textContent(),'Changed secret');assert.match(await page.locator('.note-document').textContent(),/Second block/);assert.deepEqual(errors,[]);await context.close();
+});
+
+test('desk picker isolates layouts, renames safely and keeps every desk through offline reload',async()=>{
+  const context=await browser.newContext({serviceWorkers:'block',viewport:{width:1440,height:900}});
+  let remote={schemaVersion:1,gridColumns:2,autoArrange:false,widgets:[{id:'personal-note',type:'note',title:'Personal note',text:'Personal text',grid:{slot:0,cols:1,rows:1}},{id:'personal-tasks',type:'tasks',title:'Tasks',tasks:[],grid:{slot:1,cols:1,rows:1}}],events:[]},revision=1,offline=false;
+  await context.route('**/api/**',route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path==='/api/session')return route.fulfill({json:{configured:true,user:{id:'desks-user',email:'desks@example.com'}}});
+    if(path==='/api/workspace'){
+      if(offline)return route.abort('failed');
+      if(route.request().method()==='GET')return route.fulfill({json:{state:remote,revision}});
+      const input=route.request().postDataJSON();if(input.revision!==revision)return route.fulfill({status:409,json:{error:'Conflict'}});
+      remote=input.state;revision++;return route.fulfill({json:{revision}});
+    }
+    return route.fulfill({json:{}});
+  });
+  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(base);await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('desks@example.com'));
+  assert.equal(await page.locator('#desk-select option:checked').textContent(),'Kişisel alan');
+  const personal=await page.locator('#desk-select').inputValue();
+  await page.locator('#desk-add').click();await page.locator('.name-dialog input').fill('İş');await page.locator('.name-dialog [type=submit]').click();
+  await page.waitForFunction(()=>document.querySelector('#desk-select option:checked').textContent==='İş');
+  const work=await page.locator('#desk-select').inputValue();assert.notEqual(work,personal);assert.equal(await page.locator('.widget').count(),0);
+  await page.locator('#tool-toggle').click();await page.locator('[data-add=note]').click();
+  await page.locator('.note-document').click();await page.keyboard.type('Work text');await page.locator('#grid-select').selectOption('3');
+  await page.locator('#desk-rename').click();await page.locator('.name-dialog input').fill('İş <img onerror=evil>');await page.locator('.name-dialog [type=submit]').click();
+  await page.waitForFunction(()=>document.querySelector('#desk-select option:checked').textContent==='İş <img onerror=evil>');
+  assert.equal(await page.locator('#desk-select option:checked').textContent(),'İş <img onerror=evil>');assert.equal(await page.locator('[onerror]').count(),0);
+  await page.locator('#desk-select').selectOption(personal);assert.match(await page.locator('.note-document').textContent(),/Personal text/);assert.equal(await page.locator('#grid-select').inputValue(),'2');
+  await page.locator('[data-view=tasks]').click();await page.locator('[name=task]').fill('Personal task');await page.locator('.add-task button').click();
+  await page.locator('[data-view=board]').click();await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));
+  assert.equal(remote.desks.length,2);assert.equal(remote.desks.find(desk=>desk.id===work).workspace.widgets[0].pages[0].blocks[0].text,'Work text');
+  offline=true;await page.locator('.note-document').click();await page.keyboard.press('Control+a');await page.keyboard.type('Offline personal');await page.waitForTimeout(800);
+  await page.reload();await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('desks@example.com'));assert.equal(await page.locator('#desk-select').inputValue(),personal);assert.match(await page.locator('.note-document').textContent(),/Offline personal/);
+  await page.locator('#desk-select').selectOption(work);assert.match(await page.locator('.note-document').textContent(),/Work text/);assert.equal(await page.locator('#grid-select').inputValue(),'3');
+  offline=false;await page.locator('#save-status').click();await page.waitForFunction(()=>document.querySelector('#save-status').textContent.includes('Kaydedildi'));
+  await page.reload();await page.waitForFunction(()=>document.querySelector('.profile')?.textContent.includes('desks@example.com'));assert.equal(await page.locator('#desk-select').inputValue(),work);assert.match(await page.locator('.note-document').textContent(),/Work text/);
+  await page.locator('#desk-select').selectOption(personal);assert.match(await page.locator('.note-document').textContent(),/Offline personal/);assert.match(await page.locator('.task-text').textContent(),/Personal task/);
+  await page.setViewportSize({width:320,height:700});if(!await page.locator('#workspace-sidebar').isVisible())await page.locator('#sidebar-toggle').click();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  assert.deepEqual(errors,[]);await context.close();
+});
+
 test('one-cell Spotify advances one full stage per wheel gesture and exits paging on resize',async()=>{
   const page=await browser.newPage({viewport:{width:1440,height:900},serviceWorkers:'block',reducedMotion:'reduce'});
   const id='37i9dQZF1DXcBWIGoYBM5M';

@@ -1,7 +1,8 @@
 const selectors = {
+  clipboard: '[data-clipboard-search]',
   spotify: '[data-spotify-toggle]:not(:disabled)',
   tasks: '.add-task input[name="task"]',
-  note: '.note-document',
+  note: '.note-document, [data-page-unlock]',
   calendar: '.event-form input[name="event"]',
   focus: '[data-start]',
   habits: '.habit-form input[name="name"]',
