@@ -1,4 +1,4 @@
-const CACHE='mono-shell-v26';
+const CACHE='mono-shell-v28';
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(c=>c.addAll(['/','/style.css','/app.js','/dashboard-features.js','/weather.js','/capture-parser.js','/note-vault.js','/clipboard-widget.js','/styles/dashboard.css','/cloud.js','/draft-store.js','/state-schema.js','/task-groups.js','/notebook.js','/extra-widgets.js','/grid-layout.js','/widget-search.js','/widget-shortcuts.js','/name-dialog.js','/ui-utils.js','/focus-state.js','/workspace-model.js','/desks.js','/shell-view.js','/calendar-view.js','/editor-input.js','/grid-view.js','/styles/base.css','/styles/tasks-themes.css','/styles/notebooks-widgets.css','/styles/grid.css','/styles/interactions.css','/styles/overrides.css','/styles/workspace-shell.css','/spotify-url.js','/spotify-widget.js','/spotify-account.js','/spotify-media.js','/spotify-tracks.js','/spotify-stages.js','/styles/spotify.css','/favicon.svg','/manifest.webmanifest'])));
   self.skipWaiting();

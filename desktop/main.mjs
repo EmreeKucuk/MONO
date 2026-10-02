@@ -10,7 +10,7 @@ if(process.env.MONO_DESKTOP_DATA_DIR)app.setPath('userData',resolve(process.env.
 app.setAppUserModelId('com.mono.dashboard');
 const primary=app.requestSingleInstanceLock();if(!primary)app.quit();
 app.on('second-instance',()=>{win?.show();win?.focus();});
-let win,tray,quitting=false,history={enabled:false,items:[]},reminders=[],delivered=new Set(),policy={active:false,until:0,allowed:[]},saving=Promise.resolve(),storageError='',clipboardError='';
+let win,tray,quitting=false,history={enabled:true,items:[]},reminders=[],delivered=new Set(),policy={active:false,until:0,allowed:[]},saving=Promise.resolve(),storageError='',clipboardError='';
 const historyState=()=>({...history,durable:!storageError&&safeStorage.isEncryptionAvailable(),error:clipboardError||storageError});
 const historyPath=()=>resolve(app.getPath('userData'),'clipboard.encrypted');
 function persistHistory(){
@@ -52,9 +52,10 @@ function spotifyAuth(url){
 }
 async function start(){
 await app.whenReady();
-try{history=JSON.parse(safeStorage.decryptString(await readFile(historyPath())));if(!Array.isArray(history.items))throw Error();delivered=new Set(Array.isArray(history.delivered)?history.delivered.filter(id=>typeof id==='string').slice(-2000):[]);history={enabled:history.enabled===true,items:history.items.filter(i=>typeof i?.id==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(i.id)&&typeof i.text==='string'&&Number.isFinite(i.at)).slice(0,100).map(i=>({id:i.id,text:i.text.slice(0,20000),at:i.at,pinned:i.pinned===true}))};}catch{history={enabled:false,items:[]};}
+try{history=JSON.parse(safeStorage.decryptString(await readFile(historyPath())));if(!Array.isArray(history.items))throw Error();delivered=new Set(Array.isArray(history.delivered)?history.delivered.filter(id=>typeof id==='string').slice(-2000):[]);history={enabled:true,items:history.items.filter(i=>typeof i?.id==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(i.id)&&typeof i.text==='string'&&Number.isFinite(i.at)).slice(0,100).map(i=>({id:i.id,text:i.text.slice(0,20000),at:i.at,pinned:i.pinned===true}))};}catch{history={enabled:true,items:[]};}
 session.defaultSession.setPermissionRequestHandler((contents,permission,callback,details)=>callback(contents===win?.webContents&&new URL(details.requestingUrl||contents.getURL()).origin===origin&&['notifications','clipboard-sanitized-write'].includes(permission)));
-win=new BrowserWindow({width:1320,height:900,minWidth:320,minHeight:450,title:'MONO',icon:resolve(folder,'icon.png'),backgroundColor:'#111312',autoHideMenuBar:true,show:process.env.MONO_DESKTOP_TEST!=='1',webPreferences:{preload:resolve(folder,'preload.cjs'),additionalArguments:['--mono-origin='+origin],nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,backgroundThrottling:false}});
+win=new BrowserWindow({width:1320,height:900,minWidth:320,minHeight:450,title:'MONO '+app.getVersion(),icon:resolve(folder,'icon.png'),backgroundColor:'#111312',autoHideMenuBar:true,show:process.env.MONO_DESKTOP_TEST!=='1',webPreferences:{preload:resolve(folder,'preload.cjs'),additionalArguments:['--mono-origin='+origin,'--mono-version='+app.getVersion()],nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,backgroundThrottling:false}});
+win.on('page-title-updated',event=>{event.preventDefault();win.setTitle('MONO '+app.getVersion());});
 win.webContents.setWindowOpenHandler(({url})=>{if(/^https?:\/\//.test(url))shell.openExternal(url);return {action:'deny'};});
 win.webContents.on('will-navigate',(event,url)=>{
   if(new URL(url).origin===origin)return;
@@ -63,9 +64,9 @@ win.webContents.on('will-navigate',(event,url)=>{
 win.on('close',event=>{if(!quitting){event.preventDefault();win.hide();}});
 win.webContents.on('did-fail-load',(_,code,message,url,isMain)=>{if(isMain&&code!==-3)win.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html lang="tr"><body style="background:#111312;color:#eee;font:16px system-ui;padding:40px"><h1>MONO yüklenemedi</h1><p>Bağlantını ve yayın adresini kontrol edip uygulamayı yeniden aç.</p></body></html>'));});
 const image=nativeImage.createFromPath(resolve(folder,'icon.png')).resize({width:24,height:24});
-tray=new Tray(image);tray.setToolTip('MONO');tray.setContextMenu(Menu.buildFromTemplate([{label:'MONO’yu aç',click:()=>{win.show();win.focus();}},{label:'Çıkış',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',()=>{win.show();win.focus();});
+tray=new Tray(image);tray.setToolTip('MONO '+app.getVersion());tray.setContextMenu(Menu.buildFromTemplate([{label:'MONO’yu aç',click:()=>{win.show();win.focus();}},{label:'Çıkış',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',()=>{win.show();win.focus();});
 handle('clipboard-list',historyState);
-handle('clipboard-watch',async enabled=>{if(typeof enabled!=='boolean')throw Error('Geçersiz pano ayarı.');history.enabled=enabled;await persistHistory();if(enabled)await capture();return historyState();});
+handle('clipboard-watch',async enabled=>{if(typeof enabled!=='boolean')throw Error('Geçersiz pano ayarı.');history.enabled=true;await persistHistory();await capture();return historyState();});
 handle('clipboard-capture',async()=>{await capture();return historyState();});
 handle('clipboard-copy',id=>clipboardController.copy(id));
 handle('clipboard-remove',id=>{history.items=history.items.filter(item=>item.id!==id);return persistHistory().then(historyState);});

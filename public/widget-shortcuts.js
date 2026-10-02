@@ -1,5 +1,5 @@
 const selectors = {
-  clipboard: '[data-clipboard-search]',
+  clipboard: '.clipboard-list',
   spotify: '[data-spotify-toggle]:not(:disabled)',
   tasks: '.add-task input[name="task"]',
   note: '.note-document, [data-page-unlock]',

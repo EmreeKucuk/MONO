@@ -29,7 +29,8 @@ export const sanitizeNoteBlocks=value=>list(value,2000).map(block);
 function encrypted(value){
   if(value===undefined)return null;
   if(!value||value.version!==1||value.iterations!==600000||typeof value.salt!=='string'||typeof value.iv!=='string'||typeof value.ciphertext!=='string'||!(/^[A-Za-z0-9+/]{22}==$/.test(value.salt))||!(/^[A-Za-z0-9+/]{16}$/.test(value.iv))||value.ciphertext.length<24||value.ciphertext.length>1500000||!(/^[A-Za-z0-9+/]+={0,2}$/.test(value.ciphertext)))throw Error('Şifreli sayfa verisi geçersiz.');
-  return {version:1,iterations:600000,salt:value.salt,iv:value.iv,ciphertext:value.ciphertext};
+  if(value.credential!==undefined&&value.credential!=='pin')throw Error('Şifreli sayfanın koruma türü geçersiz.');
+  return {version:1,iterations:600000,salt:value.salt,iv:value.iv,ciphertext:value.ciphertext,...(value.credential==='pin'?{credential:'pin'}:{})};
 }
 const task=value=>({
   id:id(value?.id),text:str(value?.text,300),done:value?.done===true,groupId:value?.groupId==null?null:id(value.groupId)
