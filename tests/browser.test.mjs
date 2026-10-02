@@ -252,3 +252,31 @@ test('Spotify widget validates, saves, keeps its player during grid updates and 
   await context.close();
 });
 
+
+test('connected Spotify account lists playlists, sends playback controls and activates browser without storing tokens',async()=>{
+  const context=await browser.newContext({viewport:{width:1440,height:900},serviceWorkers:'block'}),commands=[];
+  const playlist='37i9dQZF1DXcBWIGoYBM5M';
+  await context.route('**/api/spotify/**',route=>{
+    const path=new URL(route.request().url()).pathname;
+    if(path.endsWith('/status'))return route.fulfill({json:{configured:true,connected:true,loginRequired:false}});
+    if(path.endsWith('/playlists'))return route.fulfill({json:{items:[{id:playlist,name:'My focus playlist <img onerror=evil>',owner:'Me'}],nextOffset:null}});
+    if(path.endsWith('/devices'))return route.fulfill({json:{devices:[{id:'phone',name:'My phone',active:true}]}});
+    if(path.endsWith('/token'))return route.fulfill({json:{access_token:'memory-only-token'}});
+    if(path.endsWith('/playback'))commands.push(route.request().postDataJSON());
+    return route.fulfill({json:{ok:true}});
+  });
+  await context.route('https://sdk.scdn.co/spotify-player.js',route=>route.fulfill({contentType:'text/javascript',body:`window.Spotify={Player:class{constructor(options){this.options=options;this.handlers={};}addListener(name,fn){this.handlers[name]=fn;}connect(){return new Promise(resolve=>this.options.getOAuthToken(()=>{this.handlers.ready({device_id:'browser-device'});resolve(true);}));}activateElement(){return Promise.resolve();}disconnect(){window.playerDisconnected=true;}}};window.onSpotifyWebPlaybackSDKReady();`}));
+  const page=await context.newPage();await page.goto(base);await page.locator('#tool-toggle').click();await page.locator('[data-add="spotify"]').click();
+  const account=page.locator('.spotify-account');await account.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
+  await account.locator('[data-spotify-lists]').selectOption(playlist);
+  await account.locator('[data-spotify-command="play"]').click();assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,deviceId:'phone'});
+  await account.locator('[data-spotify-command="pause"]').click();assert.equal(commands.at(-1).action,'pause');
+  await account.locator('[data-spotify-browser]').click();await page.waitForFunction(()=>document.querySelector('[data-spotify-devices]').value==='browser-device');
+  await account.locator('[data-spotify-command="play"]').click();assert.equal(commands.at(-1).deviceId,'browser-device');
+  assert.equal(await account.locator('[onerror]').count(),0);
+  assert.ok(await page.evaluate(()=>![...Object.values(localStorage),...Object.values(sessionStorage)].some(value=>value.includes('memory-only-token'))));
+  await page.setViewportSize({width:320,height:700});if(await page.locator('#workspace-sidebar').isVisible())await page.locator('#sidebar-toggle').click();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await account.locator('[data-spotify-disconnect]').click();await account.locator('[data-spotify-controls]').waitFor({state:'hidden'});assert.equal(await page.evaluate(()=>window.playerDisconnected),true);
+  await context.close();
+});

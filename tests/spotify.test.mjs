@@ -29,7 +29,7 @@ test('local and Vercel CSP permit only Spotify frames and offline cache includes
   const local=await readFile(new URL('../server.mjs',import.meta.url),'utf8');
   const config=JSON.parse(await readFile(new URL('../vercel.json',import.meta.url),'utf8'));
   const remote=config.headers[0].headers.find(header=>header.key==='Content-Security-Policy').value;
-  for(const csp of [local,remote])assert.match(csp,/frame-src https:\/\/open\.spotify\.com;/);
+  for(const csp of [local,remote])assert.match(csp,/frame-src https:\/\/open\.spotify\.com https:\/\/sdk\.scdn\.co;/);
   const sw=await readFile(new URL('../public/sw.js',import.meta.url),'utf8');
   for(const asset of ['spotify-url.js','spotify-widget.js','styles/spotify.css'])assert.ok(sw.includes(asset));
 });

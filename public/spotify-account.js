@@ -1,0 +1,97 @@
+export async function spotifyRequest(action,method='GET',data){
+  const response=await fetch('/api/spotify/'+action,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),cache:'no-store'});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'Spotify bağlantısı tamamlanamadı. Yeniden dene.');
+  return result;
+}
+const returnUrl=typeof window==='undefined'?null:new URL(window.location.href),oauthResult=returnUrl?.searchParams.get('spotify');
+if(['connected','denied','failed'].includes(oauthResult)){
+  returnUrl.searchParams.delete('spotify');
+  history.replaceState(history.state,'',returnUrl.href);
+}
+let sdkJob,player,deviceId,readyJob;
+function loadSDK(){
+  if(window.Spotify?.Player)return Promise.resolve();
+  if(sdkJob)return sdkJob;
+  sdkJob=new Promise((resolve,reject)=>{
+    const script=document.createElement('script'),timeout=setTimeout(()=>{sdkJob=null;script.remove();reject(Error('Spotify oynatıcısı yüklenemedi. Bağlantını kontrol et.'));},20000);
+    window.onSpotifyWebPlaybackSDKReady=()=>{clearTimeout(timeout);resolve();};
+    script.src='https://sdk.scdn.co/spotify-player.js';
+    script.onerror=()=>{clearTimeout(timeout);sdkJob=null;script.remove();reject(Error('Spotify oynatıcısı yüklenemedi.'));};
+    document.head.append(script);
+  });
+  return sdkJob;
+}
+const announce=message=>window.dispatchEvent(new CustomEvent('mono-spotify-player',{detail:message}));
+export function stopSpotifyBrowser(){player?.disconnect();player=null;deviceId=null;readyJob=null;}
+export async function activateSpotifyBrowser(){
+  if(deviceId){await player.activateElement();return deviceId;}
+  if(readyJob)return readyJob;
+  readyJob=(async()=>{
+    await loadSDK();
+    return new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>{stopSpotifyBrowser();reject(Error('Tarayıcı oynatıcısı hazır olmadı. Spotify uygulamasındaki bir cihazı seçebilirsin.'));},20000);
+      player=new window.Spotify.Player({name:'MONO · Bu tarayıcı',volume:.5,getOAuthToken:callback=>spotifyRequest('token').then(data=>callback(data.access_token)).catch(error=>{clearTimeout(timeout);stopSpotifyBrowser();reject(error);announce(error.message);})});
+      player.addListener('ready',({device_id})=>{clearTimeout(timeout);deviceId=device_id;resolve(deviceId);});
+      player.addListener('not_ready',()=>{deviceId=null;readyJob=null;announce('Tarayıcı oynatıcısı çevrimdışı. Yeniden etkinleştir.');});
+      for(const event of ['initialization_error','authentication_error','account_error'])player.addListener(event,()=>{clearTimeout(timeout);stopSpotifyBrowser();const error=Error('Spotify oynatıcısı başlatılamadı. Premium hesabını, tarayıcı DRM desteğini ve bağlantını kontrol et.');reject(error);announce(error.message);});
+      player.addListener('autoplay_failed',()=>announce('Ses için Oynat düğmesine yeniden bas.'));
+      player.addListener('player_state_changed',state=>{if(state?.track_window?.current_track)announce((state.paused?'Duraklatıldı: ':'Çalıyor: ')+state.track_window.current_track.name);});
+      player.connect().then(ok=>{if(!ok){clearTimeout(timeout);stopSpotifyBrowser();reject(Error('Spotify oynatıcısı bağlanamadı.'));}}).catch(error=>{clearTimeout(timeout);stopSpotifyBrowser();reject(error);});
+    });
+  })().catch(error=>{readyJob=null;throw error;});
+  return readyJob;
+}
+
+const bound=new WeakSet();
+export function bindSpotifyAccount(root,beforeConnect=async()=>{}){
+  const area=root.querySelector('.spotify-account');if(!area||bound.has(area))return;bound.add(area);
+  const message=area.querySelector('[data-spotify-message]'),controls=area.querySelector('[data-spotify-controls]'),connect=area.querySelector('[data-spotify-connect]');
+  const lists=area.querySelector('[data-spotify-lists]'),devices=area.querySelector('[data-spotify-devices]');
+  let offset=0,nextOffset=null,browserId=null,busy=false;
+  const say=text=>{if(area.isConnected)message.textContent=text;};
+  const addOption=(select,value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);};
+  const job=async action=>{
+    if(busy)return;busy=true;area.setAttribute('aria-busy','true');
+    area.querySelectorAll('button').forEach(button=>button.disabled=true);
+    try{await action();}catch(error){say(error.message);}finally{busy=false;area.removeAttribute('aria-busy');area.querySelectorAll('button').forEach(button=>button.disabled=false);area.querySelector('[data-spotify-more]').hidden=nextOffset===null;}
+  };
+  async function loadLists(reset=false){
+    if(reset){offset=0;lists.replaceChildren();addOption(lists,'','Çalma listesi seç');}
+    const data=await spotifyRequest('playlists?offset='+offset);if(!area.isConnected)return;
+    for(const item of data.items)addOption(lists,item.id,item.name+(item.owner?' · '+item.owner:''));
+    nextOffset=data.nextOffset;area.querySelector('[data-spotify-more]').hidden=nextOffset===null;
+    if(lists.options.length===1)say('Hesabında çalma listesi bulunamadı. Spotify’da bir liste oluştur veya takip et.');
+  }
+  async function loadDevices(){
+    const selected=devices.value,data=await spotifyRequest('devices');if(!area.isConnected)return;
+    devices.replaceChildren();addOption(devices,'','Oynatma cihazı seç');
+    for(const device of data.devices)addOption(devices,device.id,device.name+(device.active?' · aktif':''));
+    if(browserId&&!data.devices.some(d=>d.id===browserId))addOption(devices,browserId,'MONO · Bu tarayıcı');
+    if(selected&&[...devices.options].some(option=>option.value===selected))devices.value=selected;
+    else if(browserId)devices.value=browserId;
+    else devices.value=data.devices.find(device=>device.active)?.id||'';
+    if(devices.options.length===1)say('Bu tarayıcıda oynat düğmesini kullan veya telefon/masaüstü Spotify uygulamasını açıp cihazları yenile.');
+  }
+  connect.onclick=()=>job(async()=>{await beforeConnect();const data=await spotifyRequest('connect','POST',{});const target=new URL(data.url);if(target.origin!=='https://accounts.spotify.com')throw Error('Geçersiz Spotify bağlantısı.');location.assign(target.href);});
+  area.querySelector('[data-spotify-refresh]').onclick=()=>job(async()=>{say('Listeler ve cihazlar yükleniyor…');await loadLists(true);await loadDevices();});
+  area.querySelector('[data-spotify-more]').onclick=()=>job(async()=>{offset=nextOffset;await loadLists();});
+  area.querySelector('[data-spotify-browser]').onclick=()=>job(async()=>{say('Tarayıcı oynatıcısı hazırlanıyor…');browserId=await activateSpotifyBrowser();await loadDevices();devices.value=browserId;say('Bu tarayıcı hazır. Bir çalma listesi seçip Oynat’a bas.');});
+  area.querySelector('[data-spotify-disconnect]').onclick=()=>job(async()=>{await spotifyRequest('disconnect','POST',{});stopSpotifyBrowser();controls.hidden=true;connect.hidden=false;say('Spotify bağlantısı kaldırıldı.');});
+  area.querySelectorAll('[data-spotify-command]').forEach(button=>button.onclick=()=>job(async()=>{
+    if(!devices.value)throw Error('Bir oynatma cihazı seç veya bu tarayıcıyı etkinleştir.');
+    if(button.dataset.spotifyCommand==='play'&&!lists.value)throw Error('Bir çalma listesi seç.');
+    if(devices.value===browserId&&browserId)await activateSpotifyBrowser();
+    await spotifyRequest('playback','POST',{action:button.dataset.spotifyCommand,playlistId:lists.value,deviceId:devices.value});say(button.dataset.spotifyCommand==='pause'?'Oynatma duraklatıldı.':'Oynatma komutu gönderildi.');
+  }));
+  const onPlayer=event=>say(event.detail);
+  window.addEventListener('mono-spotify-player',onPlayer);
+  const observer=new MutationObserver(()=>{if(!area.isConnected){window.removeEventListener('mono-spotify-player',onPlayer);observer.disconnect();}});observer.observe(document.querySelector('#app'),{childList:true,subtree:true});
+  job(async()=>{
+    const status=await spotifyRequest('status');if(!area.isConnected)return;
+    if(status.loginRequired){connect.hidden=true;say('Spotify hesabını bağlamak için önce MONO’ya giriş yap.');return;}
+    if(!status.configured){connect.hidden=true;say('Spotify bağlantısı için sunucu ayarları henüz yapılmadı.');return;}
+    if(!status.connected){say(oauthResult==='denied'?'Spotify izni verilmedi. İstersen yeniden bağlan.':oauthResult==='failed'?'Spotify bağlantısı tamamlanamadı. Sunucu ayarlarını kontrol edip yeniden bağlan.':'Hesabını bağla; çalma listelerin burada görünsün.');return;}
+    controls.hidden=false;connect.hidden=false;connect.textContent='Hesabı yeniden bağla';say('Spotify hesabın bağlı.');await loadLists(true);await loadDevices();
+  });
+}

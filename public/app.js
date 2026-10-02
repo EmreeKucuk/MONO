@@ -2,6 +2,7 @@ import { patchGrid } from './grid-view.js';
 import { installWidgetShortcuts,refreshWidgetShortcuts } from './widget-shortcuts.js';
 import { renderCalendar } from './calendar-view.js';
 import { renderShell } from './shell-view.js';
+import {stopSpotifyBrowser} from './spotify-account.js';
 import { askName } from './name-dialog.js';
 import { compactAroundLarge,applyLayout,collapseFour } from './grid-layout.js';
 import { normalizeGrid,gridStyle,rowCount,bindGrid,disposeGrid,appendGridWidget,changeColumns,pointSlot } from './grid-layout.js';
@@ -266,6 +267,7 @@ function bindShell(){
         if(dirty)return;
       }
       await signOut();
+      stopSpotifyBrowser();
       user=null;
       state=initial();
       shell();
@@ -356,7 +358,10 @@ function bindWidgets(scope=document){
       changed,notify,askName
     });
     if(extraTypes[w.type])bindExtra(w,el,{
-      changed,render:()=>renderWidget(w.id),notify
+      changed,render:()=>renderWidget(w.id),notify,beforeConnect:async()=>{
+        if(dirty)await persist();
+        if(dirty)throw Error('Spotify’a geçmeden önce çalışma alanını kaydet. Kayıt durumunu kontrol et.');
+      }
     });
     if(w.type==='tasks')bindTaskGroups(w,el,{
       changed,render:()=>renderWidget(w.id),notify

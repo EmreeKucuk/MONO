@@ -47,13 +47,13 @@ export function renderExtra(w){
   }
 }
 export function bindExtra(w,root,{
-  changed,render,notify
+  changed,render,notify,beforeConnect
 }){
   const update=()=>{
     changed();
     render();
   };
-  if(w.type==='spotify')return bindSpotify(w,root,{changed,render});
+  if(w.type==='spotify')return bindSpotify(w,root,{changed,render,beforeConnect});
   root.querySelector('.habit-form')?.addEventListener('submit',e=>{
     e.preventDefault();
     const name=e.target.elements.name.value.trim();

@@ -11,3 +11,11 @@
 .spotify-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; font-size:13px; }
 .spotify-actions a { color:var(--accent); }
 .spotify-actions button { font-size:12px; }
+
+.spotify-account { padding-bottom:18px; border-bottom:1px solid var(--line); }
+.spotify-account label { display:grid; gap:8px; font-size:13px; margin:14px 0; }
+.spotify-account select { width:100%; min-width:0; }
+.spotify-account [data-spotify-message] { color:var(--muted); font-size:13px; line-height:1.65; overflow-wrap:anywhere; }
+.spotify-buttons { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+.spotify-buttons button { font-size:12px; }
+.spotify-account [hidden] { display:none; }

@@ -1,4 +1,5 @@
 import { sanitizeWorkspace } from '../public/state-schema.js';
+import {handleSpotify,clearSpotify} from './spotify.mjs';
 
 const cookieName='mono_session';
 const config=()=>{
@@ -42,6 +43,7 @@ export async function handleApi(req,res){
       if((origin&&new URL(origin).host!==host)||req.headers['sec-fetch-site']==='cross-site')throw Object.assign(Error('İstek kaynağı geçersiz.'),{status:403});
       if(req.headers['content-type']?.split(';')[0]!=='application/json')throw Object.assign(Error('JSON gerekli.'),{status:415});
     }
+    if(path.startsWith('/api/spotify/')){await handleSpotify(req,res,{authenticated,body,json});return true;}
     if(path==='/api/session'&&req.method==='GET'){const auth=await authenticated(req,res);json(res,200,{configured:Boolean(url&&key),user:auth?.user||null});return true;}
     if(path==='/api/login'&&req.method==='POST'){
       const {email,password}=await body(req);const data=await supabase('/auth/v1/token?grant_type=password',{method:'POST',body:{email,password}});
@@ -54,7 +56,7 @@ export async function handleApi(req,res){
     }
     if(path==='/api/logout'&&req.method==='POST'){
       const session=readSession(req);if(session)try{await supabase('/auth/v1/logout',{method:'POST',token:session.access_token});}catch{}
-      setSession(req,res,null);json(res,200,{ok:true});return true;
+      setSession(req,res,null);clearSpotify(req,res);json(res,200,{ok:true});return true;
     }
     if(path==='/api/workspace'&&['GET','PUT'].includes(req.method)){
       const auth=await authenticated(req,res);if(!auth)throw Object.assign(Error('Oturum gerekli.'),{status:401});
