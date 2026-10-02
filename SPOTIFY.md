@@ -61,6 +61,8 @@ Kaynaklar:
 
 ## Medya oynatıcı görünümü
 
+1×1 boyutta public/spotify-stages.js üç tam yükseklikli aşama sunar: çalma listesi seçimi, medya oynatıcı ve şarkılar. Bir mouse/trackpad kaydırma hareketi tek aşama ilerletir; şarkı listesi kendi içinde kayar, kenarında önceki/sonraki aşamaya geçilebilir. Dokunmatik kaydırmada CSS scroll snap kullanılır. Alt+sayı veya Tab ile odaklanan bileşenin aşaması açılır. Alt köşedeki 1/2/3 düğmeleri ve Page Up/Page Down da geçiş sağlar. Azaltılmış hareket tercihi korunur. Daha büyük grid boyutlarında normal yerleşim devam eder; mevcut DOM ve oynatma oturumu yeniden kurulmaz. Grid boyutları yalnızca DOM dataset değerleriyle izlenir, kayıt biçimi değişmez.
+
 Karışık çal düğmesi, seçilen Spotify Connect cihazındaki karışık çalma durumunu açar/kapatır. Başarısız istekte düğme eski durumunu korur ve hata mesajı gösterilir. Yeni bir izin kapsamı veya API anahtarı gerekmez.
 
 Hesap bağlıyken seçili playlistin kapağı, adı ve şarkıları MONO içinde API üzerinden gösterilir. Satıra tıklamak seçilen Connect cihazına playlist context_uri + offset.position ile tam oynatma komutu gönderir. Önce üstteki Oynatma cihazı ve hesap bölümünden Bu tarayıcıda oynat ile SDK cihazını etkinleştir veya açık bir Spotify cihazı seç. Premium ve tarayıcı DRM desteği gerekir; önizleme ses dosyaları kullanılmaz. Şarkılar 50 öğelik sayfalarla yüklenir, boş/kullanılamayan/yerel kayıtlar sıra numaraları korunarak devre dışı gösterilir. Hatalar ve yeniden deneme panelde görünür. Hızlı liste değişiminde eski yanıtlar atılır.

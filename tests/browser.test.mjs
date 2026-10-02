@@ -15,6 +15,41 @@ const freePort=()=>new Promise(resolve=>{const server=createServer();server.list
 before(async()=>{const port=await freePort();base=`http://127.0.0.1:${port}`;processHandle=spawn(process.execPath,['server.mjs'],{cwd:project,env:{...process.env,PORT:String(port)}});for(let attempt=0;attempt<60;attempt++){try{const response=await fetch(base);if(response.ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,100));}browser=await chromium.launch({channel:process.env.MONO_BROWSER_CHANNEL||'msedge',headless:true});});
 after(async()=>{await browser?.close();processHandle?.kill();});
 
+test('one-cell Spotify advances one full stage per wheel gesture and exits paging on resize',async()=>{
+  const page=await browser.newPage({viewport:{width:1440,height:900},serviceWorkers:'block',reducedMotion:'reduce'});
+  const id='37i9dQZF1DXcBWIGoYBM5M';
+  await page.route('https://open.spotify.com/embed/**',route=>route.fulfill({body:'Playlist'}));
+  await page.route('**/api/spotify/**',route=>{
+    const path=new URL(route.request().url()).pathname;
+    const data=path.endsWith('/status')?{configured:true,connected:true}:path.endsWith('/playlists')?{items:[{id,name:'Focus',owner:'Me'}],nextOffset:null}:path.endsWith('/devices')?{devices:[{id:'phone',name:'Phone',active:true}]}:path.endsWith('/playlist')?{name:'Focus',cover:null,items:Array.from({length:40},(_,position)=>({position,name:'Song '+position,artist:'Artist',duration:90000,playable:true})),nextOffset:null}:{playing:false,position:0,duration:0,track:null};
+    return route.fulfill({json:data});
+  });
+  await page.goto(base);await page.locator('#tool-toggle').click();await page.locator('[data-add=spotify]').click();
+  const card=page.locator('.widget').filter({has:page.locator('.spotify-account')}),account=card.locator('.spotify-account');
+  await card.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
+  await card.locator('[data-spotify-lists]').selectOption(id);await card.locator('.spotify-track-row').first().waitFor({state:'attached'});
+  assert.ok(await card.evaluate(node=>node.classList.contains('spotify-paged')));
+  const stageIndex=()=>account.evaluate(node=>Math.round(node.scrollTop/node.clientHeight));
+  const visibleStages=()=>account.evaluate(node=>{const rect=node.getBoundingClientRect();return [...node.querySelectorAll('[data-spotify-stage]')].filter(stage=>{const box=stage.getBoundingClientRect();return Math.min(box.bottom,rect.bottom)-Math.max(box.top,rect.top)>2;}).length;});
+  assert.equal(await stageIndex(),0);assert.equal(await visibleStages(),1);
+  const bounds=await account.boundingBox();await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+  await page.mouse.wheel(0,120);await page.mouse.wheel(0,120);await page.mouse.wheel(0,120);
+  await page.waitForTimeout(270);assert.equal(await stageIndex(),1);assert.equal(await visibleStages(),1);
+  await page.mouse.wheel(0,120);await page.waitForTimeout(270);assert.equal(await stageIndex(),2);assert.equal(await visibleStages(),1);
+  const list=card.locator('.spotify-tracks-scroll');await list.evaluate(node=>node.scrollTop=0);
+  await card.locator('.spotify-track-row').nth(1).click();assert.equal(await stageIndex(),2);
+  const listBounds=await list.boundingBox();await page.mouse.move(listBounds.x+listBounds.width/2,listBounds.y+listBounds.height/2);
+  await page.mouse.wheel(0,150);await page.waitForTimeout(100);assert.ok(await list.evaluate(node=>node.scrollTop>0));assert.equal(await stageIndex(),2);
+  await card.locator('[data-stage-go="0"]').click();assert.equal(await stageIndex(),0);
+  await page.keyboard.press(await card.getAttribute('aria-keyshortcuts'));assert.ok(await page.evaluate(()=>document.activeElement.matches('[data-spotify-toggle]')));assert.equal(await stageIndex(),1);
+  await page.keyboard.press('PageDown');assert.equal(await stageIndex(),2);
+  await card.locator('.resize-handle').focus();await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(()=>!document.querySelector('.spotify-widget').closest('.widget').classList.contains('spotify-paged'));
+  assert.equal(await card.locator('.spotify-stage-nav').isVisible(),false);
+  await page.keyboard.press('ArrowLeft');await page.waitForFunction(()=>document.querySelector('.spotify-widget').closest('.widget').classList.contains('spotify-paged'));
+  assert.equal(await stageIndex(),0);await page.close();
+});
+
 test('document-wide selection, slash commands, partial edit and undo',async()=>{
   const page=await browser.newPage({viewport:{width:1440,height:900},serviceWorkers:'block'}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));await page.goto(base);
@@ -283,7 +318,10 @@ test('connected Spotify account lists playlists, sends playback controls and act
   const account=page.locator('.spotify-account');await account.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
   assert.equal(await page.locator('.spotify-form,.spotify-legacy,input[name=spotifyUrl]').count(),0);
   assert.ok((await account.locator('[data-spotify-lists]').boundingBox()).y<(await account.locator('.spotify-media').boundingBox()).y);
-  assert.equal(await account.locator('[data-spotify-lists]').evaluate(element=>getComputedStyle(element).borderRadius),'14px');
+  assert.ok(await account.locator('[data-spotify-lists]').evaluate(element=>parseFloat(getComputedStyle(element).borderRadius)>=14));
+  // The larger layout retains the complete account/playback interaction flow.
+  await account.evaluate(element=>element.closest('.widget').querySelector('.resize-handle').focus());await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(()=>!document.querySelector('.spotify-widget').closest('.widget').classList.contains('spotify-paged'));
   await account.locator('.spotify-settings summary').click();
   await account.locator('[data-spotify-lists]').selectOption(playlist);
   const frame=account.locator('.spotify-playlist-player');await frame.waitFor({state:'attached'});

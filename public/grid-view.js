@@ -38,6 +38,8 @@ export function patchGrid(desk, widgets, columns, rows, { card, style, bind }) {
       bind(node);
     }
     node.style.cssText = style(widget.grid, columns);
+    node.dataset.gridCols=String(widget.grid.cols);
+    node.dataset.gridRows=String(widget.grid.rows);
     node.querySelector('.resize-handle').setAttribute('aria-label', `${widget.title} boyutu ${widget.grid.cols} sütun, ${widget.grid.rows} satır; ok tuşlarıyla değiştir`);
   }
   // Avoid detaching live iframe players on every grid reconciliation.
