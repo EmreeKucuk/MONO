@@ -2,7 +2,7 @@ import {app,BrowserWindow,ipcMain,clipboard,Notification,Tray,Menu,nativeImage,s
 import {readFile,writeFile,mkdir,rename} from 'node:fs/promises';
 import {resolve,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {randomUUID} from 'node:crypto';
+import {createClipboardController} from './clipboard.mjs';
 import {appOrigin,validPolicy,canNotify,validReminders} from './policy.mjs';
 const folder=dirname(fileURLToPath(import.meta.url));
 const origin=appOrigin(process.env.MONO_APP_URL||'https://mono-rho-eight.vercel.app');
@@ -10,8 +10,8 @@ if(process.env.MONO_DESKTOP_DATA_DIR)app.setPath('userData',resolve(process.env.
 app.setAppUserModelId('com.mono.dashboard');
 const primary=app.requestSingleInstanceLock();if(!primary)app.quit();
 app.on('second-instance',()=>{win?.show();win?.focus();});
-let win,tray,quitting=false,history={enabled:false,items:[]},lastText='',reminders=[],delivered=new Set(),policy={active:false,until:0,allowed:[]},saving=Promise.resolve(),storageError='';
-const historyState=()=>({...history,durable:!storageError&&safeStorage.isEncryptionAvailable(),error:storageError});
+let win,tray,quitting=false,history={enabled:false,items:[]},reminders=[],delivered=new Set(),policy={active:false,until:0,allowed:[]},saving=Promise.resolve(),storageError='',clipboardError='';
+const historyState=()=>({...history,durable:!storageError&&safeStorage.isEncryptionAvailable(),error:clipboardError||storageError});
 const historyPath=()=>resolve(app.getPath('userData'),'clipboard.encrypted');
 function persistHistory(){
   saving=saving.catch(()=>{}).then(async()=>{
@@ -24,14 +24,14 @@ function persistHistory(){
   });
   win?.webContents.send('mono:clipboard-changed');return saving;
 }
-function capture(){
-  const text=clipboard.readText();
-  if(!text.trim()||text===lastText)return;
-  lastText=text;
-  const existing=history.items.find(item=>item.text===text);
-  if(existing){existing.at=Date.now();history.items=history.items.filter(item=>item!==existing);history.items.unshift(existing);}
-  else history.items.unshift({id:randomUUID(),text:text.slice(0,20000),at:Date.now(),pinned:false});
-  history.items=[...history.items.filter(item=>item.pinned),...history.items.filter(item=>!item.pinned)].slice(0,100);persistHistory().catch(()=>{});
+const clipboardController=createClipboardController({clipboard,getHistory:()=>history,persist:persistHistory});
+function clipboardStatus(error){
+  const message=error?'Pano okunamadı; otomatik yakalama yeniden deneyecek.':'';
+  if(message!==clipboardError){clipboardError=message;win?.webContents.send('mono:clipboard-changed');}
+}
+async function capture(options){
+  try{await clipboardController.capture(options);clipboardStatus(null);}
+  catch(error){clipboardStatus(error);throw error;}
 }
 function authorize(event){
   if(event.sender!==win?.webContents||event.senderFrame!==win.webContents.mainFrame||new URL(event.senderFrame.url).origin!==origin)throw Error('Yetkisiz masaüstü isteği.');
@@ -65,17 +65,17 @@ win.webContents.on('did-fail-load',(_,code,message,url,isMain)=>{if(isMain&&code
 const image=nativeImage.createFromPath(resolve(folder,'icon.png')).resize({width:24,height:24});
 tray=new Tray(image);tray.setToolTip('MONO');tray.setContextMenu(Menu.buildFromTemplate([{label:'MONO’yu aç',click:()=>{win.show();win.focus();}},{label:'Çıkış',click:()=>{quitting=true;app.quit();}}]));tray.on('double-click',()=>{win.show();win.focus();});
 handle('clipboard-list',historyState);
-handle('clipboard-watch',async enabled=>{if(typeof enabled!=='boolean')throw Error('Geçersiz pano ayarı.');history.enabled=enabled;if(enabled)capture();await persistHistory();return historyState();});
-handle('clipboard-capture',()=>{capture();return historyState();});
-handle('clipboard-copy',id=>{const item=history.items.find(item=>item.id===id);if(item){clipboard.writeText(item.text);lastText=item.text;}return Boolean(item);});
+handle('clipboard-watch',async enabled=>{if(typeof enabled!=='boolean')throw Error('Geçersiz pano ayarı.');history.enabled=enabled;await persistHistory();if(enabled)await capture();return historyState();});
+handle('clipboard-capture',async()=>{await capture();return historyState();});
+handle('clipboard-copy',id=>clipboardController.copy(id));
 handle('clipboard-remove',id=>{history.items=history.items.filter(item=>item.id!==id);return persistHistory().then(historyState);});
 handle('clipboard-pin',id=>{const item=history.items.find(item=>item.id===id);if(item)item.pinned=!item.pinned;return persistHistory().then(historyState);});
-handle('clipboard-clear',()=>{history.items=[];lastText=clipboard.readText();return persistHistory().then(historyState);});
+handle('clipboard-clear',async()=>{await clipboardController.clear();return historyState();});
 handle('zone',input=>{policy=validPolicy(input);return policy;});
 handle('reminders',input=>{reminders=validReminders(input);return true;});
 handle('notify',notify);
 handle('notification-settings',()=>process.platform==='win32'?shell.openExternal('ms-settings:notifications'):false);
-setInterval(()=>{if(history.enabled)capture();for(const item of reminders){if(item.at<=Date.now()&&!delivered.has(item.id)&&canNotify(policy,'reminder')){if(notify({title:'MONO · Hatırlatma',body:item.text,category:'reminder'})){delivered.add(item.id);persistHistory().catch(()=>{});}}}},750);
+setInterval(()=>{if(history.enabled)capture({automatic:true}).catch(()=>{});for(const item of reminders){if(item.at<=Date.now()&&!delivered.has(item.id)&&canNotify(policy,'reminder')){if(notify({title:'MONO · Hatırlatma',body:item.text,category:'reminder'})){delivered.add(item.id);persistHistory().catch(()=>{});}}}},750);
 app.on('before-quit',()=>{quitting=true;});
 await win.loadURL(origin);
 }

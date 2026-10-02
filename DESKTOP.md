@@ -1,4 +1,4 @@
-# MONO 1.2 · Masaüstü ve yeni dashboard araçları
+# MONO 1.2.1 · Masaüstü ve yeni dashboard araçları
 
 MONO artık Electron ile gerçek Windows uygulaması olarak paketlenebilir. Web/PWA sürümü de çalışır. Uygulama mevcut HTTPS yayınını açar; Node ve dosya sistemi web sayfasına açılmaz. Yalnızca doğrulanan ana pencereye dar bir preload/IPC köprüsü verilir. Spotify bağlantısı ve Supabase hesabı aynı BFF üzerinden devam eder.
 
@@ -19,7 +19,7 @@ Bu komut yerel BFF'yi ve masaüstü uygulamasını birlikte başlatır. `.env` s
 npm run desktop:build
 ```
 
-`release/MONO Setup 1.2.0.exe` kullanıcıya özel Windows x64 kurulum dosyasıdır. Ücretli imzalama sertifikası kullanılmadı. Pencereyi kapatmak sistem tepsisine gizler; tepsideki Çıkış uygulamayı tamamen kapatır. Hatırlatmalar uygulama tepside çalışırken devam eder. Uygulama tamamen kapalıyken, bilgisayar kapalıyken veya uyku halindeyken bildirim garantisi yoktur; yeniden çalışınca gecikmiş hatırlatmaları kontrol eder. Otomatik güncelleme henüz eklenmedi; web arayüzü yayından yüklenir, yerel Electron katmanı yeni kurulumla güncellenir.
+`release/MONO Setup 1.2.1.exe` kullanıcıya özel Windows x64 kurulum dosyasıdır. Ücretli imzalama sertifikası kullanılmadı. Pencereyi kapatmak sistem tepsisine gizler; tepsideki Çıkış uygulamayı tamamen kapatır. Hatırlatmalar uygulama tepside çalışırken devam eder. Uygulama tamamen kapalıyken, bilgisayar kapalıyken veya uyku halindeyken bildirim garantisi yoktur; yeniden çalışınca gecikmiş hatırlatmaları kontrol eder. Otomatik güncelleme henüz eklenmedi; web arayüzü yayından yüklenir, yerel Electron katmanı yeni kurulumla güncellenir.
 
 ## Özellikler
 
@@ -45,3 +45,7 @@ npm run test:desktop
 `npm test`: tarayıcı, veri/şema, kripto, Zone politikası, tarih çözümleme ve mevcut regresyon testleri. `test:desktop`: Windows'ta Electron'u açar, gerçek clipboard'ı geçici test metniyle kullanır ve sonunda önceki pano metnini geri getirir; opt-in, şifreli dosya, IPC, klavye odağı ve Zone kontrolünü doğrular. Masaüstü testi varsayılan web testlerinden ayrıdır; başarısız olduğunda sıfır olmayan çıkış kodu verir.
 
 Bu geliştirme oturumunun Windows sandbox'ında Electron başlatma testi ACL/AppContainer ve DPAPI hatalarıyla engellendi. Native clipboard yakalama, Windows toast teslimi ve gerçek kullanıcı profilindeki şifreli disk kaydı normal Windows oturumunda doğrulanmalıdır; doğrulanmış gibi raporlanmaz. Electron sandbox/contextIsolation/webSecurity kapatılmadı. Canlı Supabase hesaplarıyla ve canlı Spotify hesabıyla doğrulama yapılmadı. Open-Meteo'dan Ankara için gerçek yanıt alınabildi.
+
+## 1.2.1 Clipboard düzeltmesi
+
+Electron 44 readText/writeText işlemleri Promise döndürür. Native yakalama, kopyalama ve temizleme artık bu işlemleri bekler. Yavaş polling istekleri birleşir; okuma/yazma/temizleme sıralanır. Temizleme tamamlanınca aynı pano metni tekrar eklenmez. Otomatik okuma hataları ana işlemi çökertmez; arayüzde durum gösterilir ve sonraki poll yeniden dener. tests/desktop-clipboard.test.mjs asenkron başarı, reddedilen/geçersiz okuma, yazma hatası, yavaş okuma, opt-out ve temizleme yarışlarını Electron bağımlılığına sınanabilir adapter üzerinden doğrular. Bu düzeltme için Vercel yayını gerekmez; masaüstü paketi güncellenmelidir.
