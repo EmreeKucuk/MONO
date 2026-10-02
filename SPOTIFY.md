@@ -61,6 +61,10 @@ Kaynaklar:
 
 ## Medya oynatıcı görünümü
 
+Karışık çal düğmesi, seçilen Spotify Connect cihazındaki karışık çalma durumunu açar/kapatır. Başarısız istekte düğme eski durumunu korur ve hata mesajı gösterilir. Yeni bir izin kapsamı veya API anahtarı gerekmez.
+
+Hesaptan bir çalma listesi seçildiğinde resmi Spotify Embed görünümü medya kontrollerinin altında açılır ve şarkıları listeler. Seçim mevcut spotifyUrl alanına kaydedilir; sayfa yeniden açıldığında korunur. Listeyi kaldır düğmesi bu seçimi temizler. Embed kendi Spotify oynatıcısını kullanır; üstteki özel kontroller seçilmiş Connect cihazını yönetir, iframe ile doğrudan senkronizasyon yapılmaz. Embed içeriği Spotify'ın erişim kurallarına bağlıdır; gösterilemeyen listeler için Listeyi Spotify’da aç bağlantısı kullanılır.
+
 Ana yüz kapak, şarkı adı, sanatçı/albüm, geçen/toplam süre ve önceki–oynat/duraklat–sonraki kontrollerinden oluşur. Çalma listesi ve cihaz seçimi açılabilir bölümde tutulur. İlerleme çubuğu klavye okları veya sürüklemeyle şarkı konumunu değiştirir. Tarayıcıdaki SDK durum olayları anında işlenir; diğer cihazlar için oynatma bilgisi 15 saniyede bir ve komutlardan sonra yenilenir. Sekme gizliyken sorgu yapılmaz, hata halinde bekleme 30 saniyeye çıkar; widget kaldırıldığında zamanlayıcılar temizlenir.
 
 public/spotify-media.js görünümü ve süre/kapak güncellemelerini yönetir. server/spotify.mjs içindeki state ve seek işlemleri Spotify’dan canlı metaveri ve konum değişimini sağlar. Albüm kapağı yalnızca HTTPS i.scdn.co üzerinden yüklenir. Yerel ve Vercel CSP buna izin verir. Bu görünüm yeni izin kapsamı gerektirmez; mevcut user-read-playback-state ve user-modify-playback-state kullanılır. Eski bağlantı oynatıcısı Bağlantıdan oynat bölümünde korunur.

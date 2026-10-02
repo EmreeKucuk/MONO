@@ -28,7 +28,7 @@ test('Spotify OAuth uses PKCE, encrypted cookies, identity isolation, refresh an
       assert.equal(options.headers.Authorization,'Bearer renewed-access');
       if(address.includes('/me/playlists'))return answer({items:[{id:'37i9dQZF1DXcBWIGoYBM5M',name:'My playlist',owner:{display_name:'Me'}}],next:null});
       if(address.includes('/devices'))return answer({devices:[{id:'device-1',name:'Phone',is_active:true,is_restricted:false}]});
-      if(address.endsWith('/me/player'))return answer({is_playing:true,progress_ms:1000,item:{name:'Song',duration_ms:180000,artists:[{name:'Artist'}],album:{name:'Album',images:[{url:'javascript:alert(1)'}]}}});
+      if(address.endsWith('/me/player'))return answer({shuffle_state:true,is_playing:true,progress_ms:1000,item:{name:'Song',duration_ms:180000,artists:[{name:'Artist'}],album:{name:'Album',images:[{url:'javascript:alert(1)'}]}}});
       return new Response(null,{status:204});
     }
     return originalFetch(url,options);
@@ -56,6 +56,15 @@ test('Spotify OAuth uses PKCE, encrypted cookies, identity isolation, refresh an
     assert.equal((await call('/api/spotify/playback',current,'POST',{action:'play',playlistId:'37i9dQZF1DXcBWIGoYBM5M',deviceId:'device-1'})).status,200);
     assert.equal(JSON.parse(calls.at(-1).body).context_uri,'spotify:playlist:37i9dQZF1DXcBWIGoYBM5M');
     const state=await (await call('/api/spotify/state',current)).json();assert.equal(state.track.name,'Song');assert.equal(state.track.cover,null);assert.equal(state.position,1000);
+    assert.equal(state.shuffle,true);
+    for(const enabled of [true,false]){
+      assert.equal((await call('/api/spotify/playback',current,'POST',{action:'shuffle',enabled,deviceId:'device-1'})).status,200);
+      assert.equal(calls.at(-1).method,'PUT');
+      assert.equal(new URL(calls.at(-1).url).searchParams.get('state'),String(enabled));
+    }
+    const beforeInvalid=calls.length;
+    assert.equal((await call('/api/spotify/playback',current,'POST',{action:'shuffle',enabled:'true',deviceId:'device-1'})).status,400);
+    assert.equal(calls.length,beforeInvalid);
     assert.equal((await call('/api/spotify/playback',current,'POST',{action:'seek',positionMs:45000,deviceId:'device-1'})).status,200);
     assert.match(calls.at(-1).url,/seek\?device_id=device-1&position_ms=45000/);
     assert.equal((await call('/api/spotify/playback',current,'POST',{action:'seek',positionMs:-1,deviceId:'device-1'})).status,400);

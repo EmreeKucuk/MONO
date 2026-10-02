@@ -257,14 +257,22 @@ test('Spotify widget validates, saves, keeps its player during grid updates and 
 test('connected Spotify account lists playlists, sends playback controls and activates browser without storing tokens',async()=>{
   const context=await browser.newContext({viewport:{width:1440,height:900},serviceWorkers:'block'}),commands=[];
   const playlist='37i9dQZF1DXcBWIGoYBM5M';
+  let shuffle=false,failShuffle=false;
+  await context.route('https://open.spotify.com/embed/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><p>Playlist tracks</p>'}));
   await context.route('**/api/spotify/**',route=>{
     const path=new URL(route.request().url()).pathname;
     if(path.endsWith('/status'))return route.fulfill({json:{configured:true,connected:true,loginRequired:false}});
-    if(path.endsWith('/playlists'))return route.fulfill({json:{items:[{id:playlist,name:'My focus playlist <img onerror=evil>',owner:'Me'}],nextOffset:null}});
+    if(path.endsWith('/playlists'))return route.fulfill({json:{items:[{id:playlist,name:'My focus playlist <img onerror=evil>',owner:'Me'},{id:'7gwrt2C38WT1Z7sd409355',name:'Second playlist',owner:'Me'}],nextOffset:null}});
     if(path.endsWith('/devices'))return route.fulfill({json:{devices:[{id:'phone',name:'My phone',active:true}]}});
     if(path.endsWith('/token'))return route.fulfill({json:{access_token:'memory-only-token'}});
-    if(path.endsWith('/state'))return route.fulfill({json:{playing:commands.at(-1)?.action==='play'||commands.at(-1)?.action==='resume',position:30000,duration:180000,track:{name:'Heat Waves',artist:'Glass Animals',album:'Dreamland',cover:'https://i.scdn.co/image/test-cover'}}});
-    if(path.endsWith('/playback'))commands.push(route.request().postDataJSON());
+    if(path.endsWith('/state'))return route.fulfill({json:{shuffle,playing:commands.at(-1)?.action==='play'||commands.at(-1)?.action==='resume',position:30000,duration:180000,track:{name:'Heat Waves',artist:'Glass Animals',album:'Dreamland',cover:'https://i.scdn.co/image/test-cover'}}});
+    if(path.endsWith('/playback')){
+      const command=route.request().postDataJSON();commands.push(command);
+      if(command.action==='shuffle'){
+        if(failShuffle)return route.fulfill({status:503,json:{error:'Spotify unavailable'}});
+        shuffle=command.enabled;
+      }
+    }
     return route.fulfill({json:{ok:true}});
   });
   await context.route('https://sdk.scdn.co/spotify-player.js',route=>route.fulfill({contentType:'text/javascript',body:`window.Spotify={Player:class{constructor(options){this.options=options;this.handlers={};}addListener(name,fn){this.handlers[name]=fn;}connect(){return new Promise(resolve=>this.options.getOAuthToken(()=>{this.handlers.ready({device_id:'browser-device'});resolve(true);}));}activateElement(){return Promise.resolve();}disconnect(){window.playerDisconnected=true;}}};window.onSpotifyWebPlaybackSDKReady();`}));
@@ -273,6 +281,22 @@ test('connected Spotify account lists playlists, sends playback controls and act
   const account=page.locator('.spotify-account');await account.locator('[data-spotify-lists] option').nth(1).waitFor({state:'attached'});
   await account.locator('.spotify-settings summary').click();
   await account.locator('[data-spotify-lists]').selectOption(playlist);
+  const frame=account.locator('.spotify-playlist-player');await frame.waitFor({state:'visible'});
+  assert.equal(await frame.getAttribute('src'),'https://open.spotify.com/embed/playlist/'+playlist+'?theme=0');
+  assert.match(await account.locator('[data-spotify-playlist-name]').textContent(),/My focus playlist <img onerror=evil>/);
+  await frame.evaluate(element=>window.selectedPlaylistFrame=element);
+  await account.locator('[data-spotify-lists]').selectOption('7gwrt2C38WT1Z7sd409355');
+  assert.equal(await frame.getAttribute('src'),'https://open.spotify.com/embed/playlist/7gwrt2C38WT1Z7sd409355?theme=0');
+  assert.ok(await frame.evaluate(element=>element===window.selectedPlaylistFrame));
+  await account.locator('[data-spotify-lists]').selectOption('');assert.equal(await frame.count(),0);
+  await account.locator('[data-spotify-lists]').selectOption(playlist);await frame.waitFor({state:'visible'});
+  const shuffleButton=account.locator('[data-spotify-shuffle]');
+  const waitForCommand=()=>page.waitForFunction(()=>document.querySelector('.spotify-account').getAttribute('aria-busy')===null);
+  await shuffleButton.click();await waitForCommand();assert.equal(await shuffleButton.getAttribute('aria-pressed'),'true');
+  assert.deepEqual(commands.at(-1),{action:'shuffle',enabled:true,deviceId:'phone'});
+  failShuffle=true;await shuffleButton.click();await waitForCommand();assert.equal(await shuffleButton.getAttribute('aria-pressed'),'true');
+  assert.match(await account.locator('[data-spotify-message]').textContent(),/Spotify unavailable/);
+  failShuffle=false;await shuffleButton.click();await waitForCommand();assert.equal(await shuffleButton.getAttribute('aria-pressed'),'false');assert.equal(shuffle,false);
   await account.locator('[data-spotify-command="play"]').click();assert.deepEqual(commands.at(-1),{action:'play',playlistId:playlist,deviceId:'phone'});
   await account.locator('[data-spotify-command="pause"]').click();assert.equal(commands.at(-1).action,'pause');
   await account.locator('[data-spotify-browser]').click();await page.waitForFunction(()=>document.querySelector('[data-spotify-devices]').value==='browser-device');

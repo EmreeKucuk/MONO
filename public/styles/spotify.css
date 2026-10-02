@@ -60,3 +60,11 @@
 .spotify-timeline { margin:14px 0 4px; }
 .spotify-times { margin-top:6px; }
 .spotify-transport .spotify-play { width:44px; height:44px; }
+
+.spotify-shuffle { display:flex; align-items:center; justify-content:center; gap:7px; margin:8px auto 0; padding:5px 9px; background:transparent; border:1px solid transparent; color:var(--muted); font-size:11px; }
+.spotify-shuffle svg { width:16px; height:16px; }
+.spotify-shuffle[aria-pressed=true] { color:var(--accent); border-color:var(--accent); }
+.spotify-playlist { margin-top:18px; }
+.spotify-playlist h3 { font-size:13px; font-weight:550; margin:0 0 10px; overflow-wrap:anywhere; }
+.spotify-playlist-player { min-height:360px; }
+.spotify-playlist a { display:inline-block; margin-top:8px; font-size:11px; color:var(--accent); }

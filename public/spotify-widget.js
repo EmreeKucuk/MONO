@@ -5,9 +5,16 @@ import {renderMedia} from './spotify-media.js';
 
 export function renderSpotify(widget) {
   const content=spotifyContent(widget.spotifyUrl);
+  const playlist=content?.type==='playlist'?content:null;
   return `<div class="spotify-widget">
     <section class="spotify-account" aria-label="Spotify hesabı">
       ${renderMedia()}
+      <section class="spotify-playlist" data-spotify-playlist ${playlist?'':'hidden'} aria-label="Seçili çalma listesindeki şarkılar">
+        <h3 data-spotify-playlist-name>Seçili çalma listesi</h3>
+        ${playlist?`<iframe class="spotify-player spotify-playlist-player" title="Spotify çalma listesindeki şarkılar" src="${escape(playlist.embed)}" width="100%" height="360" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>`:''}
+        <a data-spotify-playlist-link ${playlist?`href="${escape(playlist.url)}"`:''} target="_blank" rel="noopener noreferrer">Listeyi Spotify’da aç ↗</a>
+        <button type="button" data-spotify-remove>Listeyi kaldır</button>
+      </section>
       <button type="button" data-spotify-connect>Spotify’a bağlan</button>
       <p data-spotify-message role="status">Spotify bağlantısı kontrol ediliyor…</p>
       <div data-spotify-controls hidden>
@@ -21,7 +28,7 @@ export function renderSpotify(widget) {
       </div>
     </section>
     <details class="spotify-settings spotify-legacy" ${content?'open':''}><summary>Bağlantıdan oynat</summary>
-    ${content?`<iframe class="spotify-player" title="Spotify ${content.type==='track'?'şarkı':'çalma listesi veya albüm'} oynatıcısı" src="${escape(content.embed)}" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    ${content&&!playlist?`<iframe class="spotify-player" title="Spotify ${content.type==='track'?'şarkı':'çalma listesi veya albüm'} oynatıcısı" src="${escape(content.embed)}" height="352" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
       <div class="spotify-actions"><a href="${escape(content.url)}" target="_blank" rel="noopener noreferrer">Spotify’da aç ↗</a><button type="button" data-spotify-remove>Bağlantıyı kaldır</button></div>`:
       '<div class="spotify-empty"><strong>Çalışma alanının ritmi.</strong><p>Spotify’da şarkı, albüm veya çalma listesini aç. Paylaş → Bağlantıyı kopyala; buraya yapıştır.</p></div>'}
     <form class="spotify-form" novalidate>
@@ -35,7 +42,12 @@ export function renderSpotify(widget) {
 }
 
 export function bindSpotify(widget,root,{changed,render,beforeConnect}) {
-  bindSpotifyAccount(root,beforeConnect);
+  bindSpotifyAccount(root,beforeConnect,{selectedUrl:widget.spotifyUrl,onPlaylist:url=>{
+    if(widget.spotifyUrl===url)return;
+    widget.spotifyUrl=url;
+    root.querySelector('.spotify-form input').value=url;
+    changed();
+  }});
   root.querySelector('.spotify-form').addEventListener('submit',event=>{
     event.preventDefault();
     const input=event.target.elements.spotifyUrl,content=spotifyContent(input.value);
@@ -57,10 +69,10 @@ export function bindSpotify(widget,root,{changed,render,beforeConnect}) {
     changed();
     render();
   });
-  root.querySelector('[data-spotify-remove]')?.addEventListener('click',()=>{
+  root.querySelectorAll('[data-spotify-remove]').forEach(button=>button.addEventListener('click',()=>{
     widget.spotifyUrl='';
     changed();
     render();
     document.querySelector(`.widget[data-id="${widget.id}"] .spotify-form input`)?.focus();
-  });
+  }));
 }

@@ -65,7 +65,7 @@ export async function handleSpotify(req,res,{authenticated,body,json}){
     const data=await api(value,'/me/player'),track=data?.item;
     let cover=null;
     try{const image=new URL(track?.album?.images?.[0]?.url);if(image.protocol==='https:'&&image.hostname==='i.scdn.co'&&!image.username&&!image.password)cover=image.href;}catch{}
-    json(res,200,{playing:data?.is_playing===true,position:Math.max(0,Number(data?.progress_ms)||0),duration:Math.max(0,Number(track?.duration_ms)||0),track:track?{name:String(track.name||'').slice(0,300),album:String(track.album?.name||'').slice(0,300),artist:(track.artists||[]).map(artist=>String(artist.name||'')).join(', ').slice(0,300),cover}:null});return;
+    json(res,200,{playing:data?.is_playing===true,shuffle:data?.shuffle_state===true,position:Math.max(0,Number(data?.progress_ms)||0),duration:Math.max(0,Number(track?.duration_ms)||0),track:track?{name:String(track.name||'').slice(0,300),album:String(track.album?.name||'').slice(0,300),artist:(track.artists||[]).map(artist=>String(artist.name||'')).join(', ').slice(0,300),cover}:null});return;
   }
   if(action==='playlists'&&req.method==='GET'){
     const offset=Number(url.searchParams.get('offset')||0);if(!Number.isInteger(offset)||offset<0||offset>100000)throw fail(400,'Geçersiz sayfa.');
@@ -78,6 +78,10 @@ export async function handleSpotify(req,res,{authenticated,body,json}){
     if(typeof device!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(device))throw fail(400,'Bir Spotify cihazı seç.');
     const suffix='?device_id='+encodeURIComponent(device);
     if(input.action==='play'){if(!/^[a-zA-Z0-9]{22}$/.test(input.playlistId||''))throw fail(400,'Bir çalma listesi seç.');await api(value,'/me/player/play'+suffix,'PUT',{context_uri:'spotify:playlist:'+input.playlistId});}
+    else if(input.action==='shuffle'){
+      if(typeof input.enabled!=='boolean')throw fail(400,'Karışık çalma durumu geçersiz.');
+      await api(value,'/me/player/shuffle'+suffix+'&state='+input.enabled,'PUT');
+    }
     else if(input.action==='seek'){
       if(!Number.isSafeInteger(input.positionMs)||input.positionMs<0||input.positionMs>86400000)throw fail(400,'Geçersiz oynatma konumu.');
       await api(value,'/me/player/seek'+suffix+'&position_ms='+input.positionMs,'PUT');

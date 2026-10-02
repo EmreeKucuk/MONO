@@ -1,4 +1,5 @@
 import {bindMedia} from './spotify-media.js';
+import {spotifyContent} from './spotify-url.js';
 export async function spotifyRequest(action,method='GET',data){
   const response=await fetch('/api/spotify/'+action,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data),cache:'no-store'});
   const result=await response.json().catch(()=>({}));
@@ -48,18 +49,31 @@ export async function activateSpotifyBrowser(){
 }
 
 const bound=new WeakSet();
-export function bindSpotifyAccount(root,beforeConnect=async()=>{}){
+export function bindSpotifyAccount(root,beforeConnect=async()=>{},{selectedUrl,onPlaylist=()=>{}}={}){
   const area=root.querySelector('.spotify-account');if(!area||bound.has(area))return;bound.add(area);
   const message=area.querySelector('[data-spotify-message]'),controls=area.querySelector('[data-spotify-controls]'),connect=area.querySelector('[data-spotify-connect]');
   const lists=area.querySelector('[data-spotify-lists]'),devices=area.querySelector('[data-spotify-devices]');
   const media=bindMedia(area);
+  const saved=spotifyContent(selectedUrl),playlistArea=area.querySelector('[data-spotify-playlist]');
+  let selectedPlaylist=saved?.type==='playlist'?saved.id:'';
+  function showPlaylist(id){
+    const content=spotifyContent('https://open.spotify.com/playlist/'+id);
+    if(!content){playlistArea.hidden=true;playlistArea.querySelector('iframe')?.remove();return;}
+    playlistArea.hidden=false;
+    let frame=playlistArea.querySelector('iframe');
+    if(!frame){frame=document.createElement('iframe');frame.className='spotify-player spotify-playlist-player';frame.title='Spotify çalma listesindeki şarkılar';frame.width='100%';frame.height='360';frame.allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';frame.allowFullscreen=true;frame.loading='lazy';frame.referrerPolicy='strict-origin-when-cross-origin';playlistArea.querySelector('[data-spotify-playlist-link]').before(frame);}
+    if(frame.getAttribute('src')!==content.embed)frame.src=content.embed;
+    const option=[...lists.options].find(option=>option.value===id);
+    playlistArea.querySelector('[data-spotify-playlist-name]').textContent=option?.textContent||'Seçili çalma listesi';
+    playlistArea.querySelector('[data-spotify-playlist-link]').href=content.url;
+  }
   let offset=0,nextOffset=null,browserId=null,busy=false,connected=false,polling=false,pollTimer,tickTimer,failures=0;
   const say=text=>{if(area.isConnected)message.textContent=text;};
   const addOption=(select,value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);};
   const job=async action=>{
     if(busy)return;busy=true;area.setAttribute('aria-busy','true');
     area.querySelectorAll('button').forEach(button=>button.disabled=true);
-    try{await action();}catch(error){say(error.message);}finally{busy=false;area.removeAttribute('aria-busy');area.querySelectorAll('button').forEach(button=>button.disabled=false);area.querySelectorAll('.spotify-transport button').forEach(button=>button.disabled=!connected);area.querySelector('[data-spotify-more]').hidden=nextOffset===null;}
+    try{await action();}catch(error){say(error.message);}finally{busy=false;area.removeAttribute('aria-busy');area.querySelectorAll('button').forEach(button=>button.disabled=false);area.querySelectorAll('.spotify-transport button,[data-spotify-shuffle]').forEach(button=>button.disabled=!connected);area.querySelector('[data-spotify-more]').hidden=nextOffset===null;}
   };
   async function loadState(){
     if(!connected||polling||!area.isConnected||document.hidden)return;
@@ -74,6 +88,10 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{}){
     const data=await spotifyRequest('playlists?offset='+offset);if(!area.isConnected)return;
     for(const item of data.items)addOption(lists,item.id,item.name+(item.owner?' · '+item.owner:''));
     nextOffset=data.nextOffset;area.querySelector('[data-spotify-more]').hidden=nextOffset===null;
+    if(selectedPlaylist){
+      if([...lists.options].some(option=>option.value===selectedPlaylist)){lists.value=selectedPlaylist;showPlaylist(selectedPlaylist);}
+      else if(nextOffset===null){addOption(lists,selectedPlaylist,'Kaydedilmiş çalma listesi');lists.value=selectedPlaylist;showPlaylist(selectedPlaylist);}
+    }
     if(lists.options.length===1)say('Hesabında çalma listesi bulunamadı. Spotify’da bir liste oluştur veya takip et.');
   }
   async function loadDevices(){
@@ -91,7 +109,20 @@ export function bindSpotifyAccount(root,beforeConnect=async()=>{}){
   area.querySelector('[data-spotify-more]').onclick=()=>job(async()=>{offset=nextOffset;await loadLists();});
   area.querySelector('[data-spotify-browser]').onclick=()=>job(async()=>{say('Tarayıcı oynatıcısı hazırlanıyor…');browserId=await activateSpotifyBrowser();await loadDevices();devices.value=browserId;say('Bu tarayıcı hazır. Bir çalma listesi seçip Oynat’a bas.');});
   area.querySelector('[data-spotify-disconnect]').onclick=()=>job(async()=>{await spotifyRequest('disconnect','POST',{});connected=false;clearTimeout(pollTimer);clearInterval(tickTimer);stopSpotifyBrowser();media.clear();controls.hidden=true;connect.hidden=false;say('Spotify bağlantısı kaldırıldı.');});
-  lists.onchange=()=>media.choose();
+  lists.onchange=()=>{
+    const content=spotifyContent('https://open.spotify.com/playlist/'+lists.value);
+    selectedPlaylist=content?.id||'';
+    media.choose();showPlaylist(selectedPlaylist);
+    root.querySelector('.spotify-legacy iframe')?.remove();
+    root.querySelector('.spotify-legacy .spotify-actions')?.remove();
+    onPlaylist(content?.url||'');
+  };
+  area.querySelector('[data-spotify-shuffle]').onclick=()=>job(async()=>{
+    if(!devices.value)throw Error('Karışık çalma için bir Spotify cihazı seç.');
+    const button=area.querySelector('[data-spotify-shuffle]'),enabled=button.getAttribute('aria-pressed')!=='true';
+    await spotifyRequest('playback','POST',{action:'shuffle',enabled,deviceId:devices.value});
+    button.setAttribute('aria-pressed',String(enabled));say(enabled?'Karışık çalma açık.':'Karışık çalma kapalı.');
+  });
   area.querySelectorAll('[data-spotify-command]').forEach(button=>button.onclick=()=>job(async()=>{
     if(!devices.value)throw Error('Bir oynatma cihazı seç veya bu tarayıcıyı etkinleştir.');
     if(button.dataset.spotifyCommand==='play'&&!lists.value)throw Error('Bir çalma listesi seç.');
