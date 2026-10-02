@@ -47,15 +47,6 @@ export function renderShell({state,user,view,toolbox,dirty,conflicted,offline,ty
       </header>
       ${!user?'<div class="demo-banner"><span>Önizleme alanı · Değişiklikler bu oturumda geçicidir.</span><button id="banner-login">Kaydetmek için giriş yap</button></div>':''}
       <section class="content">
-        <div class="heading"><div>
-          <span class="eyebrow">${view==='board'?'BİRAZ ALAN, DAHA FAZLA ODAK':view==='tasks'?'BİR ADIM DAHA':'ZAMANINA YER AÇ'}</span>
-          <h1>${view==='board'?'Bugün, senin düzeninde.':view==='tasks'?'Yapılacak her şey.':'Günlerine genel bir bakış.'}</h1>
-          <p>${view==='board'?'Aklındakileri toparla. Önemli olana yer aç.':view==='tasks'?'Tüm listelerin tek bir yerde.':'Planların ve hatırlamak istediklerin.'}</p>
-        </div></div>
-        <div class="viewbar">
-          <div class="view-label">${view==='board'?'Grid alanı':view==='tasks'?'Görev listeleri':'Aylık takvim'} <span>${view==='board'?state.widgets.length+' widget':view==='tasks'?count+' açık görev':''}</span></div>
-          <span class="hint">${view==='board'?'Başlıktan taşı · Köşeden büyüt · Alt+1–9 / Alt+0 ile widget seç':''}</span>
-        </div>
         <div id="desk" class="${view==='board'?'desk':view==='tasks'?'task-view':'calendar-view'}"></div>
         <footer class="canvas-footer"><span>MONO / KİŞİSEL ÇALIŞMA ALANIN</span><span class="hint">${user?'Sana ait bir alan.':'Bağlantı kurulunca hesabına kaydedilir.'}</span></footer>
       </section>
